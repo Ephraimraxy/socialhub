@@ -1,33 +1,4 @@
-import { appConfig, platformCatalog } from './config.js';
-
-function fallbackCampaign(input) {
-  const platforms = platformCatalog.filter((platform) => input.platforms?.includes(platform.id));
-  const audience = input.audience || 'business owners';
-  const topic = input.topic || 'How to turn one idea into daily social content';
-  const tone = input.tone || 'confident and practical';
-
-  return {
-    title: topic.length > 74 ? `${topic.slice(0, 74)}...` : topic,
-    script: [
-      `Hook: ${audience} are losing time by recreating the same message for every platform.`,
-      `Problem: every channel needs a different title, caption, aspect ratio, and approval path.`,
-      `Solution: start with one approved idea, then turn it into scripts, voiceover, video, captions, and scheduled jobs.`,
-      `Proof: YouTube and Meta support direct publishing after approval, while TikTok can use direct post or manual completion.`,
-      `CTA: choose one daily content package and let the system handle the production line.`,
-    ],
-    captions: platforms.map((platform) => ({
-      platform: platform.name,
-      mode: platform.id === 'tiktok' ? 'Hybrid' : 'Auto',
-      text: `${tone} ${platform.name} caption for ${audience}: ${topic}`,
-      hashtags:
-        platform.id === 'youtube'
-          ? '#Shorts #BusinessGrowth #ContentSystem'
-          : platform.id === 'tiktok'
-            ? '#SmallBusiness #AITools #DailyContent'
-            : '#SocialMediaMarketing #Entrepreneurship #ContentCreation',
-    })),
-  };
-}
+import { appConfig, requireConfigured } from './config.js';
 
 function extractJson(text) {
   const trimmed = text.trim();
@@ -39,7 +10,9 @@ function extractJson(text) {
 
 export async function generateCampaignDraft(input, brandProfile) {
   if (!appConfig.anthropicApiKey) {
-    return { ...fallbackCampaign(input), provider: 'mock' };
+    requireConfigured('Claude campaign generation', [
+      { name: 'ANTHROPIC_API_KEY', value: appConfig.anthropicApiKey },
+    ]);
   }
 
   const prompt = [

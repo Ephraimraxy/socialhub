@@ -27,6 +27,7 @@ For this current frontend prototype, Railway only needs:
 NODE_ENV=production
 PORT=3000
 AUTH_SECRET=
+ENABLE_DIRECT_PUBLISHING=false
 ```
 
 Railway usually injects `PORT` automatically, so you do not normally need to set it manually. Set `AUTH_SECRET` to a long random value before real users create accounts.
@@ -45,6 +46,9 @@ ANTHROPIC_MODEL=
 ELEVENLABS_API_KEY=
 ELEVENLABS_VOICE_ID=
 ELEVENLABS_MODEL=
+VIDEO_RENDER_ENDPOINT=
+VIDEO_RENDER_API_KEY=
+OAUTH_ENCRYPTION_KEY=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 META_APP_ID=
@@ -54,6 +58,8 @@ TIKTOK_CLIENT_SECRET=
 DATABASE_URL=
 REDIS_URL=
 ```
+
+SocialHub does not include live fallback success paths. If Paystack, Claude, ElevenLabs, rendering, or OAuth variables are missing, the affected route returns a configuration error instead of pretending to complete the action.
 
 ## GitHub Repo Setup
 

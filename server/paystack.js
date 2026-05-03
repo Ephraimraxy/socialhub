@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { appConfig, subscriptionPlans } from './config.js';
+import { appConfig, requireConfigured, subscriptionPlans } from './config.js';
 import { createId } from './store.js';
 
 export function getPlan(planId) {
@@ -18,12 +18,9 @@ export async function initializeCheckout({ user, tenant, planId }) {
   const amount = plan.priceMonthly * 100;
 
   if (!appConfig.paystackSecretKey) {
-    return {
-      provider: 'mock',
-      reference,
-      authorizationUrl: `/billing/mock-success?reference=${reference}&plan=${plan.id}`,
-      plan,
-    };
+    requireConfigured('Paystack billing', [
+      { name: 'PAYSTACK_SECRET_KEY', value: appConfig.paystackSecretKey },
+    ]);
   }
 
   const payload = {

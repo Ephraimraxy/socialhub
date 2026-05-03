@@ -43,6 +43,7 @@ export const api = {
   updateBrandProfile: (body) => apiRequest('/api/brand-profile', { method: 'PUT', body }),
   connectPlatform: (platformId, body) =>
     apiRequest(`/api/platforms/${platformId}/connect`, { method: 'POST', body }),
+  startOAuth: (platformId) => apiRequest(`/api/oauth/${platformId}/start`, { method: 'POST' }),
   checkout: (planId) => apiRequest('/api/billing/checkout', { method: 'POST', body: { planId } }),
   generateCampaign: (body) => apiRequest('/api/campaigns/generate', { method: 'POST', body }),
   createVoice: (campaignId) => apiRequest(`/api/campaigns/${campaignId}/voice`, { method: 'POST' }),

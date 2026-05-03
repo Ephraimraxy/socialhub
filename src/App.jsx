@@ -126,42 +126,20 @@ const apiMap = [
   { label: 'Stripe', owner: 'Stripe Atlas later', use: 'Optional international billing adapter', readiness: 55 },
 ];
 
-const sampleCampaigns = [
-  {
-    id: 1,
-    title: 'Daily growth tip',
-    channel: 'YouTube Shorts',
-    date: '2026-05-04',
-    time: '09:00',
-    status: 'Scheduled',
-    progress: 72,
-  },
-  {
-    id: 2,
-    title: 'Client testimonial cutdown',
-    channel: 'Instagram Reels',
-    date: '2026-05-04',
-    time: '13:30',
-    status: 'Needs approval',
-    progress: 48,
-  },
-  {
-    id: 3,
-    title: 'Behind the scenes',
-    channel: 'TikTok',
-    date: '2026-05-05',
-    time: '18:00',
-    status: 'Phone approval',
-    progress: 35,
-  },
-];
+const emptyQueue = [];
 
 const defaultForm = {
-  topic: 'How small businesses can turn one idea into four daily social posts',
-  audience: 'small business owners',
-  tone: 'confident and practical',
-  offer: 'AI-managed social content subscription',
+  topic: '',
+  audience: '',
+  tone: '',
+  offer: '',
   format: 'short-form video',
+};
+
+const emptyCampaign = {
+  title: 'No campaign generated yet',
+  script: [],
+  captions: [],
 };
 
 function App() {
@@ -173,8 +151,8 @@ function App() {
   const [platforms, setPlatforms] = useState(mergePlatforms([]));
   const [form, setForm] = useState(defaultForm);
   const [selectedPlatforms, setSelectedPlatforms] = useState(['youtube', 'instagram', 'facebook', 'tiktok']);
-  const [campaign, setCampaign] = useState(() => buildCampaign(defaultForm, selectedPlatforms));
-  const [queue, setQueue] = useState(sampleCampaigns);
+  const [campaign, setCampaign] = useState(emptyCampaign);
+  const [queue, setQueue] = useState(emptyQueue);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [plan, setPlan] = useState('starter');
@@ -249,7 +227,7 @@ function App() {
     setToken('');
     setSession(null);
     setTenant(null);
-    setQueue(sampleCampaigns);
+    setQueue(emptyQueue);
     setPlatforms(mergePlatforms([]));
   }
 
@@ -257,22 +235,9 @@ function App() {
     const target = platforms.find((platform) => platform.id === platformId);
     setApiError('');
     try {
-      const result = await api.connectPlatform(platformId, {
-        connected: !target?.connected,
-        handle: target?.handle || `@${platformId}_demo`,
-      });
-      setPlatforms((current) =>
-        current.map((platform) =>
-          platform.id === platformId
-            ? {
-                ...platform,
-                connected: result.platform.connected,
-                status: result.platform.status === 'connected' ? 'Connected' : 'Ready for OAuth',
-                handle: result.platform.handle,
-              }
-            : platform,
-        ),
-      );
+      if (target?.connected) return;
+      const result = await api.startOAuth(platformId);
+      window.location.href = result.authorizationUrl;
     } catch (error) {
       setApiError(error.message);
     }
@@ -342,11 +307,7 @@ function App() {
     try {
       const result = await api.checkout(planId);
       setPlan(planId);
-      if (result.provider === 'mock') {
-        setSubscription((current) => ({ ...(current || {}), planId, status: 'active', provider: 'mock' }));
-      } else {
-        window.location.href = result.authorizationUrl;
-      }
+      window.location.href = result.authorizationUrl;
     } catch (error) {
       setApiError(error.message);
     }
@@ -354,7 +315,7 @@ function App() {
 
   function clearDraft() {
     setForm(defaultForm);
-    setCampaign(buildCampaign(defaultForm, selectedPlatforms));
+    setCampaign(emptyCampaign);
   }
 
   if (booting) {
@@ -492,8 +453,8 @@ function NavButton({ icon: Icon, id, label, activeView, setActiveView }) {
 function AuthScreen({ onSubmit, error }) {
   const [mode, setMode] = useState('register');
   const [form, setForm] = useState({
-    name: 'Ephraim Raxy',
-    company: 'SocialHub Agency',
+    name: '',
+    company: '',
     email: '',
     password: '',
   });
@@ -652,18 +613,26 @@ function Dashboard({ connectedCount, directPlatforms, projectedCost, queue, setA
           </button>
         </div>
         <div className="queue-list">
-          {queue.map((item) => (
-            <article className="queue-item" key={item.id}>
-              <div>
-                <strong>{item.title}</strong>
-                <span>{item.channel} · {item.date} · {item.time}</span>
-              </div>
-              <StatusPill label={item.status} />
-              <div className="progress-bar" aria-label={`${item.progress}% ready`}>
-                <span style={{ width: `${item.progress}%` }} />
-              </div>
-            </article>
-          ))}
+          {queue.length ? (
+            queue.map((item) => (
+              <article className="queue-item" key={item.id}>
+                <div>
+                  <strong>{item.title}</strong>
+                  <span>{item.channel} · {item.date} · {item.time}</span>
+                </div>
+                <StatusPill label={item.status} />
+                <div className="progress-bar" aria-label={`${item.progress}% ready`}>
+                  <span style={{ width: `${item.progress}%` }} />
+                </div>
+              </article>
+            ))
+          ) : (
+            <div className="empty-state">
+              <CalendarClock size={22} />
+              <strong>No scheduled campaigns yet</strong>
+              <span>Create and render a campaign before scheduling live publishing jobs.</span>
+            </div>
+          )}
         </div>
       </section>
 
@@ -872,24 +841,36 @@ function Factory({
 
         <div className="script-box">
           <h3>Script</h3>
-          <ol>
-            {campaign.script.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ol>
+          {campaign.script.length ? (
+            <ol>
+              {campaign.script.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ol>
+          ) : (
+            <p className="muted-copy">Generate a campaign with your live Claude API key to create the script.</p>
+          )}
         </div>
 
         <div className="caption-grid">
-          {campaign.captions.map((caption) => (
-            <article className="caption-card" key={caption.platform}>
-              <div className="caption-head">
-                <strong>{caption.platform}</strong>
-                <StatusPill label={caption.mode} />
-              </div>
-              <p>{caption.text}</p>
-              <span>{caption.hashtags}</span>
-            </article>
-          ))}
+          {campaign.captions.length ? (
+            campaign.captions.map((caption) => (
+              <article className="caption-card" key={caption.platform}>
+                <div className="caption-head">
+                  <strong>{caption.platform}</strong>
+                  <StatusPill label={caption.mode} />
+                </div>
+                <p>{caption.text}</p>
+                <span>{caption.hashtags}</span>
+              </article>
+            ))
+          ) : (
+            <div className="empty-state caption-empty">
+              <FileText size={22} />
+              <strong>No platform captions yet</strong>
+              <span>Captions appear after generation completes.</span>
+            </div>
+          )}
         </div>
 
         <div className="asset-row">
@@ -1083,7 +1064,7 @@ function queueFromData(campaigns, publishJobs) {
       };
     });
 
-  return [...jobRows, ...campaignRows].length ? [...jobRows, ...campaignRows] : sampleCampaigns;
+  return [...jobRows, ...campaignRows];
 }
 
 function jobsToQueue(jobs, campaigns) {

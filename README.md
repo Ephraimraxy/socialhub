@@ -26,10 +26,12 @@ This app is prepared for GitHub-to-Railway CI/CD:
 - Publishing queue prototype
 - User registration and login
 - Tenant/workspace bootstrap
-- Paystack checkout initialization with mock fallback
-- Claude campaign generation with mock fallback
-- ElevenLabs voice asset generation with mock fallback
-- Render asset placeholder and publishing job workflow
+- Paystack checkout initialization
+- Claude campaign generation
+- ElevenLabs voice asset generation
+- External video render endpoint hook
+- OAuth start/callback flow for Google, Meta, and TikTok providers
+- Live publishing queue that refuses to mark posts complete without approved platform adapters
 - Full workflow map
 - Build blueprint and business model view
 
@@ -40,5 +42,5 @@ This app is prepared for GitHub-to-Railway CI/CD:
 - Full Paystack subscription verification and plan management
 - Optional Stripe adapter later for Stripe Atlas or supported-country expansion
 - Video rendering worker
-- YouTube, Meta, and TikTok production OAuth/app review flows
-- Platform publishing APIs beyond the current simulation
+- YouTube, Meta, and TikTok app review completion
+- Platform upload/publishing adapters after provider approval

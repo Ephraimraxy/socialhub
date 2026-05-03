@@ -15,6 +15,7 @@ const initialData = {
   mediaAssets: [],
   publishJobs: [],
   billingEvents: [],
+  oauthStates: [],
 };
 
 function ensureStore() {

@@ -8,9 +8,19 @@ export const appConfig = {
   elevenLabsApiKey: process.env.ELEVENLABS_API_KEY || '',
   elevenLabsVoiceId: process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb',
   elevenLabsModel: process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2',
+  renderEndpoint: process.env.VIDEO_RENDER_ENDPOINT || '',
+  renderApiKey: process.env.VIDEO_RENDER_API_KEY || '',
   paystackSecretKey: process.env.PAYSTACK_SECRET_KEY || '',
   paystackPublicKey: process.env.PAYSTACK_PUBLIC_KEY || '',
   paystackWebhookSecret: process.env.PAYSTACK_WEBHOOK_SECRET || process.env.PAYSTACK_SECRET_KEY || '',
+  oauthEncryptionKey: process.env.OAUTH_ENCRYPTION_KEY || '',
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+  metaAppId: process.env.META_APP_ID || '',
+  metaAppSecret: process.env.META_APP_SECRET || '',
+  tiktokClientKey: process.env.TIKTOK_CLIENT_KEY || '',
+  tiktokClientSecret: process.env.TIKTOK_CLIENT_SECRET || '',
+  enableDirectPublishing: process.env.ENABLE_DIRECT_PUBLISHING === 'true',
 };
 
 export const subscriptionPlans = {
@@ -84,4 +94,13 @@ export function formatMoney(plan) {
     currency: plan.currency,
     maximumFractionDigits: 0,
   }).format(plan.priceMonthly);
+}
+
+export function requireConfigured(integrationName, values) {
+  const missing = values.filter((item) => !item.value).map((item) => item.name);
+  if (!missing.length) return;
+
+  const error = new Error(`${integrationName} is not configured. Set ${missing.join(', ')} in Railway variables.`);
+  error.status = 503;
+  throw error;
 }

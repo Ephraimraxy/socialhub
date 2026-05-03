@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { appConfig } from './config.js';
+import { appConfig, requireConfigured } from './config.js';
 import { createId, mutateStore, nowIso } from './store.js';
 
 function assetPath(assetId, extension) {
@@ -13,23 +13,9 @@ export async function createVoiceAsset({ tenantId, campaignId, text }) {
   const assetId = createId('asset');
 
   if (!appConfig.elevenLabsApiKey) {
-    const path = assetPath(assetId, 'txt');
-    writeFileSync(path, text);
-    return mutateStore((data) => {
-      const asset = {
-        id: assetId,
-        tenantId,
-        campaignId,
-        type: 'voiceover',
-        provider: 'mock',
-        mimeType: 'text/plain',
-        path,
-        url: `/api/assets/${assetId}`,
-        createdAt: nowIso(),
-      };
-      data.mediaAssets.push(asset);
-      return asset;
-    });
+    requireConfigured('ElevenLabs voice generation', [
+      { name: 'ELEVENLABS_API_KEY', value: appConfig.elevenLabsApiKey },
+    ]);
   }
 
   const response = await fetch(
@@ -73,15 +59,44 @@ export async function createVoiceAsset({ tenantId, campaignId, text }) {
   });
 }
 
-export function createRenderAsset({ tenantId, campaignId, campaign }) {
+export async function createRenderAsset({ tenantId, campaignId, campaign }) {
+  if (!appConfig.renderEndpoint) {
+    requireConfigured('Video rendering', [
+      { name: 'VIDEO_RENDER_ENDPOINT', value: appConfig.renderEndpoint },
+    ]);
+  }
+
   const assetId = createId('asset');
   const path = assetPath(assetId, 'json');
-  const renderPlan = {
+
+  let renderPlan;
+
+  const response = await fetch(appConfig.renderEndpoint, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(appConfig.renderApiKey ? { authorization: `Bearer ${appConfig.renderApiKey}` } : {}),
+    },
+    body: JSON.stringify({
+      campaignId,
+      title: campaign.title,
+      script: campaign.script,
+      captions: campaign.captions,
+      format: campaign.format,
+      platforms: campaign.platforms,
+    }),
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload?.error || payload?.message || 'Video renderer request failed');
+  }
+  renderPlan = {
+    ...payload,
+    provider: 'external-renderer',
     campaignId,
-    title: campaign.title,
-    script: campaign.script,
-    note: 'Replace this mock render with Remotion, Creatomate, or a worker service in production.',
   };
+
   writeFileSync(path, JSON.stringify(renderPlan, null, 2));
 
   return mutateStore((data) => {
@@ -90,10 +105,10 @@ export function createRenderAsset({ tenantId, campaignId, campaign }) {
       tenantId,
       campaignId,
       type: 'video-render',
-      provider: 'mock-renderer',
+      provider: renderPlan.provider,
       mimeType: 'application/json',
       path,
-      url: `/api/assets/${assetId}`,
+      url: renderPlan.videoUrl || renderPlan.url || `/api/assets/${assetId}`,
       createdAt: nowIso(),
     };
     data.mediaAssets.push(asset);

@@ -94,7 +94,7 @@ Publishing:
 
 - Create privacy policy.
 - Create terms of service.
-- Create permission demo screens.
+- Create permission review screens.
 - Submit Google verification.
 - Submit Meta app review.
 - Prepare TikTok audit materials.
@@ -129,4 +129,4 @@ Publishing:
 
 ## Best First Implementation
 
-The current deployable MVP includes auth, tenant creation, Paystack checkout initialization, Claude campaign generation, ElevenLabs voice generation, render placeholders, and publishing job simulation. The production hardening step is to replace file persistence with PostgreSQL, add encrypted OAuth token storage, and complete platform app reviews.
+The current deployable app includes auth, tenant creation, Paystack checkout initialization, Claude campaign generation, ElevenLabs voice generation, external render endpoint support, encrypted OAuth token storage, and a publishing queue that refuses to mark posts complete unless live publishing is explicitly enabled. The production hardening step is to replace file persistence with PostgreSQL and complete platform app reviews before enabling direct publishing.

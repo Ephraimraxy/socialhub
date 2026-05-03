@@ -1,8 +1,9 @@
 import { createReadStream, existsSync } from 'node:fs';
 import { extname } from 'node:path';
 import { hashPassword, createToken, requireUser, verifyPassword, verifyToken, getBearerToken } from './auth.js';
-import { formatMoney, platformCatalog, subscriptionPlans } from './config.js';
+import { appConfig, formatMoney, platformCatalog, subscriptionPlans } from './config.js';
 import { generateCampaignDraft } from './ai.js';
+import { buildAuthorizationUrl, encryptTokenPayload, exchangeOAuthCode } from './oauth.js';
 import { createRenderAsset, createVoiceAsset } from './voice.js';
 import { getPlan, initializeCheckout, verifyPaystackSignature } from './paystack.js';
 import {
@@ -183,8 +184,7 @@ async function updateBrandProfile(request, response) {
 }
 
 async function connectPlatform(request, response, platformId) {
-  const user = requireUser(request);
-  const body = await readJson(request);
+  requireUser(request);
   const platform = platformCatalog.find((item) => item.id === platformId);
 
   if (!platform) {
@@ -193,40 +193,105 @@ async function connectPlatform(request, response, platformId) {
     throw error;
   }
 
-  const account = mutateStore((data) => {
-    const existing = data.platformAccounts.find(
-      (item) => item.tenantId === user.tenantId && item.platformId === platformId,
-    );
-    const connected = body.connected ?? true;
+  const error = new Error('Live platform linking must use OAuth. Use /api/oauth/:platform/start.');
+  error.status = 409;
+  throw error;
+}
 
-    if (existing) {
-      existing.connected = connected;
-      existing.status = connected ? 'connected' : 'not_connected';
-      existing.handle = body.handle || existing.handle || `@${platform.name.toLowerCase()}_demo`;
-      existing.connectedAt = connected ? nowIso() : null;
-      existing.updatedAt = nowIso();
-      return existing;
-    }
+async function startOAuth(request, response, platformId) {
+  const user = requireUser(request);
+  const platform = platformCatalog.find((item) => item.id === platformId);
 
-    const created = {
-      id: createId('acct'),
+  if (!platform) {
+    const error = new Error('Unknown platform');
+    error.status = 404;
+    throw error;
+  }
+
+  const state = createId('oauth');
+  const authorizationUrl = buildAuthorizationUrl({ platformId, state });
+
+  mutateStore((data) => {
+    data.oauthStates.push({
+      id: state,
       tenantId: user.tenantId,
+      userId: user.id,
       platformId,
       provider: platform.provider,
-      connected,
-      status: connected ? 'connected' : 'not_connected',
-      handle: body.handle || `@${platform.name.toLowerCase()}_demo`,
-      accountId: createId(platformId),
-      tokenRef: connected ? `vault:${createId('token')}` : '',
-      connectedAt: connected ? nowIso() : null,
       createdAt: nowIso(),
-      updatedAt: nowIso(),
-    };
-    data.platformAccounts.push(created);
-    return created;
+    });
   });
 
-  sendJson(response, 200, { platform: { ...platform, ...account } });
+  sendJson(response, 200, { authorizationUrl, platform });
+}
+
+async function oauthCallback(request, response, provider) {
+  const url = new URL(request.url, 'http://localhost');
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+
+  if (!code || !state) {
+    response.writeHead(302, { location: '/?oauth=missing_code' });
+    response.end();
+    return;
+  }
+
+  const oauthState = readStore().oauthStates.find((item) => item.id === state && item.provider === provider);
+  if (!oauthState) {
+    response.writeHead(302, { location: '/?oauth=invalid_state' });
+    response.end();
+    return;
+  }
+
+  try {
+    const tokenPayload = await exchangeOAuthCode({
+      provider,
+      code,
+      platformId: oauthState.platformId,
+    });
+    const encryptedToken = encryptTokenPayload(tokenPayload);
+    const platform = platformCatalog.find((item) => item.id === oauthState.platformId);
+
+    mutateStore((data) => {
+      data.oauthStates = data.oauthStates.filter((item) => item.id !== state);
+      const existing = data.platformAccounts.find(
+        (item) => item.tenantId === oauthState.tenantId && item.platformId === oauthState.platformId,
+      );
+
+      if (existing) {
+        existing.connected = true;
+        existing.status = 'connected';
+        existing.encryptedToken = encryptedToken;
+        existing.tokenRef = `oauth:${provider}:${oauthState.platformId}`;
+        existing.connectedAt = nowIso();
+        existing.updatedAt = nowIso();
+        return;
+      }
+
+      data.platformAccounts.push({
+        id: createId('acct'),
+        tenantId: oauthState.tenantId,
+        platformId: oauthState.platformId,
+        provider,
+        connected: true,
+        status: 'connected',
+        handle: platform?.name || oauthState.platformId,
+        accountId: '',
+        tokenRef: `oauth:${provider}:${oauthState.platformId}`,
+        encryptedToken,
+        connectedAt: nowIso(),
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      });
+    });
+
+    response.writeHead(302, { location: '/?oauth=connected' });
+    response.end();
+  } catch (error) {
+    console.error(error);
+    response.writeHead(302, { location: `/?oauth=failed&provider=${encodeURIComponent(provider)}` });
+    response.end();
+  }
 }
 
 async function createCheckout(request, response) {
@@ -242,7 +307,7 @@ async function createCheckout(request, response) {
     if (subscription) {
       subscription.planId = plan.id;
       subscription.provider = checkout.provider;
-      subscription.status = checkout.provider === 'mock' ? 'active' : 'checkout_started';
+      subscription.status = 'checkout_started';
       subscription.checkoutReference = checkout.reference;
       subscription.updatedAt = nowIso();
     }
@@ -362,7 +427,7 @@ async function createRender(request, response, campaignId) {
     throw error;
   }
 
-  const asset = createRenderAsset({ tenantId: user.tenantId, campaignId, campaign });
+  const asset = await createRenderAsset({ tenantId: user.tenantId, campaignId, campaign });
   mutateStore((store) => {
     const item = store.campaigns.find((campaignItem) => campaignItem.id === campaignId);
     item.renderAssetId = asset.id;
@@ -385,6 +450,12 @@ async function scheduleCampaign(request, response, campaignId) {
   }
 
   const accounts = data.platformAccounts.filter((item) => item.tenantId === user.tenantId && item.connected);
+  if (!campaign.renderAssetId) {
+    const error = new Error('Create a video render asset before scheduling this campaign.');
+    error.status = 409;
+    throw error;
+  }
+
   const jobs = mutateStore((store) => {
     const created = campaign.platforms.map((platformId) => {
       const platform = platformCatalog.find((item) => item.id === platformId);
@@ -394,7 +465,7 @@ async function scheduleCampaign(request, response, campaignId) {
         tenantId: user.tenantId,
         campaignId,
         platformId,
-        status: connected ? (platformId === 'tiktok' ? 'needs_user_approval' : 'scheduled') : 'blocked',
+        status: connected ? 'ready_for_live_publish' : 'blocked',
         publishAt: body.publishAt || new Date(Date.now() + 60 * 60 * 1000).toISOString(),
         mode: platform?.automation || 'direct',
         error: connected ? '' : 'Platform account is not connected',
@@ -416,6 +487,12 @@ async function scheduleCampaign(request, response, campaignId) {
 
 async function runPublishJob(request, response, jobId) {
   const user = requireUser(request);
+  if (!appConfig.enableDirectPublishing) {
+    const error = new Error('Direct publishing is disabled. Set ENABLE_DIRECT_PUBLISHING=true only after platform OAuth, app reviews, and upload adapters are approved.');
+    error.status = 503;
+    throw error;
+  }
+
   const job = mutateStore((data) => {
     const item = data.publishJobs.find((candidate) => candidate.id === jobId && candidate.tenantId === user.tenantId);
     if (!item) {
@@ -425,10 +502,9 @@ async function runPublishJob(request, response, jobId) {
     }
 
     if (item.status === 'blocked') return item;
-    item.status = item.platformId === 'tiktok' ? 'approval_sent' : 'published';
-    item.publishedAt = nowIso();
-    item.updatedAt = nowIso();
-    return item;
+    const error = new Error(`Live ${item.platformId} publishing adapter is not enabled for this deployment.`);
+    error.status = 501;
+    throw error;
   });
 
   sendJson(response, 200, { job });
@@ -487,6 +563,18 @@ export async function handleApi(request, response) {
     }
     if (request.method === 'POST' && pathname === '/api/campaigns/generate') {
       await generateCampaign(request, response);
+      return true;
+    }
+
+    const oauthStartMatch = pathname.match(/^\/api\/oauth\/([^/]+)\/start$/);
+    if (request.method === 'POST' && oauthStartMatch) {
+      await startOAuth(request, response, oauthStartMatch[1]);
+      return true;
+    }
+
+    const oauthCallbackMatch = pathname.match(/^\/api\/oauth\/([^/]+)\/callback$/);
+    if (request.method === 'GET' && oauthCallbackMatch) {
+      await oauthCallback(request, response, oauthCallbackMatch[1]);
       return true;
     }
 
