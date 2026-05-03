@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   ArrowRight,
@@ -14,6 +14,7 @@ import {
   Film,
   KeyRound,
   Link2,
+  LogOut,
   Loader2,
   LockKeyhole,
   Mic2,
@@ -28,9 +29,11 @@ import {
   TimerReset,
   UploadCloud,
   Users,
+  UserPlus,
   Wand2,
   X,
 } from 'lucide-react';
+import { api, setToken } from './api.js';
 
 const platformSeed = [
   {
@@ -163,37 +166,116 @@ const defaultForm = {
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
-  const [platforms, setPlatforms] = useState(
-    platformSeed.map((platform) => ({ ...platform, connected: platform.id === 'youtube' })),
-  );
+  const [booting, setBooting] = useState(true);
+  const [session, setSession] = useState(null);
+  const [tenant, setTenant] = useState(null);
+  const [apiError, setApiError] = useState('');
+  const [platforms, setPlatforms] = useState(mergePlatforms([]));
   const [form, setForm] = useState(defaultForm);
   const [selectedPlatforms, setSelectedPlatforms] = useState(['youtube', 'instagram', 'facebook', 'tiktok']);
   const [campaign, setCampaign] = useState(() => buildCampaign(defaultForm, selectedPlatforms));
   const [queue, setQueue] = useState(sampleCampaigns);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [plan, setPlan] = useState('starter');
+  const [plans, setPlans] = useState([]);
+  const [subscription, setSubscription] = useState(null);
 
   const connectedCount = platforms.filter((platform) => platform.connected).length;
   const directPlatforms = platforms.filter((platform) => platform.automation === 'Direct').length;
-  const projectedCost = plan === 'starter' ? 39 : plan === 'growth' ? 89 : 179;
+  const activePlan = plans.find((item) => item.id === plan);
+  const projectedCost = activePlan?.displayPrice || (plan === 'starter' ? '₦25K' : plan === 'growth' ? '₦65K' : '₦150K');
 
   const selectedPlatformNames = useMemo(
     () => platformSeed.filter((platform) => selectedPlatforms.includes(platform.id)).map((platform) => platform.name),
     [selectedPlatforms],
   );
 
-  function togglePlatform(platformId) {
-    setPlatforms((current) =>
-      current.map((platform) =>
-        platform.id === platformId
-          ? {
-              ...platform,
-              connected: !platform.connected,
-              status: platform.connected ? 'Ready for OAuth' : 'Connected',
-            }
-          : platform,
-      ),
-    );
+  useEffect(() => {
+    let mounted = true;
+    api
+      .me()
+      .then((payload) => {
+        if (!mounted) return;
+        if (payload.user) {
+          hydrate(payload);
+        }
+      })
+      .catch((error) => setApiError(error.message))
+      .finally(() => mounted && setBooting(false));
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  function hydrate(payload) {
+    setSession(payload.user || null);
+    setTenant(payload.tenant || null);
+    setPlatforms(mergePlatforms(payload.platforms || []));
+    setPlans(payload.plans || []);
+    setSubscription(payload.subscription || null);
+    setPlan(payload.subscription?.planId || payload.plans?.[0]?.id || 'starter');
+    setQueue(queueFromData(payload.campaigns || [], payload.publishJobs || []));
+
+    if (payload.brandProfile) {
+      setForm((current) => ({
+        ...current,
+        audience: payload.brandProfile.audience || current.audience,
+        tone: payload.brandProfile.voice || current.tone,
+        offer: payload.brandProfile.offer || current.offer,
+      }));
+    }
+
+    const latestCampaign = payload.campaigns?.[0];
+    if (latestCampaign) {
+      setCampaign(latestCampaign);
+    }
+  }
+
+  async function handleAuth(payload) {
+    setApiError('');
+    try {
+      const result = payload.mode === 'login'
+        ? await api.login(payload)
+        : await api.register(payload);
+      setToken(result.token);
+      hydrate(result);
+    } catch (error) {
+      setApiError(error.message);
+    }
+  }
+
+  function logout() {
+    setToken('');
+    setSession(null);
+    setTenant(null);
+    setQueue(sampleCampaigns);
+    setPlatforms(mergePlatforms([]));
+  }
+
+  async function togglePlatform(platformId) {
+    const target = platforms.find((platform) => platform.id === platformId);
+    setApiError('');
+    try {
+      const result = await api.connectPlatform(platformId, {
+        connected: !target?.connected,
+        handle: target?.handle || `@${platformId}_demo`,
+      });
+      setPlatforms((current) =>
+        current.map((platform) =>
+          platform.id === platformId
+            ? {
+                ...platform,
+                connected: result.platform.connected,
+                status: result.platform.status === 'connected' ? 'Connected' : 'Ready for OAuth',
+                handle: result.platform.handle,
+              }
+            : platform,
+        ),
+      );
+    } catch (error) {
+      setApiError(error.message);
+    }
   }
 
   function toggleTarget(platformId) {
@@ -208,26 +290,66 @@ function App() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function generateCampaign() {
+  async function generateCampaign() {
     setIsGenerating(true);
-    window.setTimeout(() => {
-      setCampaign(buildCampaign(form, selectedPlatforms));
+    setApiError('');
+    try {
+      const result = await api.generateCampaign({ ...form, platforms: selectedPlatforms });
+      setCampaign(result.campaign);
+      setQueue((current) => [
+        {
+          id: result.campaign.id,
+          title: result.campaign.title,
+          channel: 'Draft campaign',
+          date: new Date(result.campaign.createdAt).toISOString().slice(0, 10),
+          time: new Date(result.campaign.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: result.campaign.status,
+          progress: 40,
+        },
+        ...current.filter((item) => item.id !== result.campaign.id),
+      ]);
+    } catch (error) {
+      setApiError(error.message);
+    } finally {
       setIsGenerating(false);
-    }, 650);
+    }
   }
 
-  function addToQueue() {
-    const firstChannel = selectedPlatformNames[0] || 'Draft';
-    const next = {
-      id: Date.now(),
-      title: form.topic.slice(0, 42),
-      channel: firstChannel,
-      date: '2026-05-06',
-      time: '10:00',
-      status: selectedPlatforms.includes('tiktok') ? 'Needs TikTok approval' : 'Scheduled',
-      progress: selectedPlatforms.includes('tiktok') ? 54 : 78,
-    };
-    setQueue((current) => [next, ...current]);
+  async function addToQueue() {
+    if (!campaign.id) {
+      await generateCampaign();
+      return;
+    }
+
+    setIsProcessing(true);
+    setApiError('');
+    try {
+      await api.createVoice(campaign.id);
+      await api.createRender(campaign.id);
+      const result = await api.scheduleCampaign(campaign.id, {
+        publishAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      });
+      setQueue((current) => [...jobsToQueue(result.jobs, [campaign]), ...current]);
+    } catch (error) {
+      setApiError(error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  async function checkout(planId) {
+    setApiError('');
+    try {
+      const result = await api.checkout(planId);
+      setPlan(planId);
+      if (result.provider === 'mock') {
+        setSubscription((current) => ({ ...(current || {}), planId, status: 'active', provider: 'mock' }));
+      } else {
+        window.location.href = result.authorizationUrl;
+      }
+    } catch (error) {
+      setApiError(error.message);
+    }
   }
 
   function clearDraft() {
@@ -235,16 +357,29 @@ function App() {
     setCampaign(buildCampaign(defaultForm, selectedPlatforms));
   }
 
+  if (booting) {
+    return (
+      <div className="boot-screen">
+        <Loader2 className="spin" size={24} />
+        <strong>Loading SocialHub</strong>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <AuthScreen onSubmit={handleAuth} error={apiError} />;
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand-lockup" aria-label="Social AI Studio">
+        <div className="brand-lockup" aria-label="SocialHub">
           <div className="brand-mark">
             <Sparkles size={21} strokeWidth={2.4} />
           </div>
           <div>
-            <strong>Social AI Studio</strong>
-            <span>Founder Console</span>
+            <strong>SocialHub</strong>
+            <span>SaaS Console</span>
           </div>
         </div>
 
@@ -261,7 +396,7 @@ function App() {
             <Users size={18} />
           </div>
           <div>
-            <strong>Agency tenant</strong>
+            <strong>{tenant?.name || session.name}</strong>
             <span>{connectedCount} of 4 platforms linked</span>
           </div>
         </div>
@@ -274,6 +409,10 @@ function App() {
             <h1>{viewTitle(activeView)}</h1>
           </div>
           <div className="topbar-actions">
+            <button className="secondary-action" type="button" onClick={logout}>
+              <LogOut size={17} />
+              Sign out
+            </button>
             <button className="icon-button" type="button" aria-label="Refresh dashboard">
               <RefreshCcw size={18} />
             </button>
@@ -283,6 +422,16 @@ function App() {
             </button>
           </div>
         </header>
+
+        {apiError && (
+          <div className="alert-bar" role="alert">
+            <CircleAlert size={18} />
+            <span>{apiError}</span>
+            <button className="icon-button small-icon" type="button" aria-label="Dismiss alert" onClick={() => setApiError('')}>
+              <X size={15} />
+            </button>
+          </div>
+        )}
 
         {activeView === 'dashboard' && (
           <Dashboard
@@ -309,10 +458,19 @@ function App() {
             generateCampaign={generateCampaign}
             addToQueue={addToQueue}
             clearDraft={clearDraft}
+            isProcessing={isProcessing}
           />
         )}
 
-        {activeView === 'blueprint' && <Blueprint plan={plan} setPlan={setPlan} />}
+        {activeView === 'blueprint' && (
+          <Blueprint
+            plan={plan}
+            plans={plans}
+            subscription={subscription}
+            setPlan={setPlan}
+            checkout={checkout}
+          />
+        )}
       </main>
     </div>
   );
@@ -328,6 +486,107 @@ function NavButton({ icon: Icon, id, label, activeView, setActiveView }) {
       <Icon size={18} />
       <span>{label}</span>
     </button>
+  );
+}
+
+function AuthScreen({ onSubmit, error }) {
+  const [mode, setMode] = useState('register');
+  const [form, setForm] = useState({
+    name: 'Ephraim Raxy',
+    company: 'SocialHub Agency',
+    email: '',
+    password: '',
+  });
+  const [busy, setBusy] = useState(false);
+  const isRegister = mode === 'register';
+
+  function updateField(key, value) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      await onSubmit({ ...form, mode });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="auth-screen">
+      <section className="auth-panel">
+        <div className="brand-lockup auth-brand" aria-label="SocialHub">
+          <div className="brand-mark">
+            <Sparkles size={21} strokeWidth={2.4} />
+          </div>
+          <div>
+            <strong>SocialHub</strong>
+            <span>Client content automation</span>
+          </div>
+        </div>
+
+        <div>
+          <p className="eyebrow">SaaS Access</p>
+          <h1>{isRegister ? 'Create your workspace' : 'Sign in'}</h1>
+        </div>
+
+        {error && (
+          <div className="alert-bar auth-alert" role="alert">
+            <CircleAlert size={18} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form className="auth-form" onSubmit={submit}>
+          {isRegister && (
+            <>
+              <label>
+                <span>Name</span>
+                <input value={form.name} onChange={(event) => updateField('name', event.target.value)} />
+              </label>
+              <label>
+                <span>Company</span>
+                <input value={form.company} onChange={(event) => updateField('company', event.target.value)} />
+              </label>
+            </>
+          )}
+          <label>
+            <span>Email</span>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(event) => updateField('email', event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            <span>Password</span>
+            <input
+              type="password"
+              value={form.password}
+              onChange={(event) => updateField('password', event.target.value)}
+              required
+              minLength={6}
+            />
+          </label>
+
+          <button className="primary-action large-action" type="submit" disabled={busy}>
+            {busy ? <Loader2 className="spin" size={18} /> : isRegister ? <UserPlus size={18} /> : <KeyRound size={18} />}
+            {busy ? 'Working' : isRegister ? 'Create workspace' : 'Sign in'}
+          </button>
+        </form>
+
+        <button
+          className="secondary-action full-width"
+          type="button"
+          onClick={() => setMode(isRegister ? 'login' : 'register')}
+        >
+          {isRegister ? 'I already have an account' : 'Create a new workspace'}
+        </button>
+      </section>
+    </main>
   );
 }
 
@@ -536,6 +795,7 @@ function Factory({
   generateCampaign,
   addToQueue,
   clearDraft,
+  isProcessing,
 }) {
   return (
     <section className="factory-screen">
@@ -604,9 +864,9 @@ function Factory({
             <p className="eyebrow">Generated Draft</p>
             <h2>{campaign.title}</h2>
           </div>
-          <button className="secondary-action" type="button" onClick={addToQueue}>
-            <CalendarClock size={17} />
-            Queue
+          <button className="secondary-action" type="button" onClick={addToQueue} disabled={isProcessing}>
+            {isProcessing ? <Loader2 className="spin" size={17} /> : <CalendarClock size={17} />}
+            {isProcessing ? 'Building' : 'Queue'}
           </button>
         </div>
 
@@ -643,7 +903,15 @@ function Factory({
   );
 }
 
-function Blueprint({ plan, setPlan }) {
+function Blueprint({ plan, plans, subscription, setPlan, checkout }) {
+  const visiblePlans = plans.length
+    ? plans
+    : [
+        { id: 'starter', displayPrice: '₦25K' },
+        { id: 'growth', displayPrice: '₦65K' },
+        { id: 'agency', displayPrice: '₦150K' },
+      ];
+
   return (
     <section className="blueprint-screen">
       <div className="two-column">
@@ -671,19 +939,20 @@ function Blueprint({ plan, setPlan }) {
           <p className="eyebrow">Business Model</p>
           <h2>Subscription packages</h2>
           <div className="pricing-toggle" role="group" aria-label="Pricing plan">
-            {[
-              ['starter', '$39'],
-              ['growth', '$89'],
-              ['agency', '$179'],
-            ].map(([id, label]) => (
-              <button className={plan === id ? 'is-selected' : ''} type="button" key={id} onClick={() => setPlan(id)}>
-                {label}
+            {visiblePlans.map((item) => (
+              <button className={plan === item.id ? 'is-selected' : ''} type="button" key={item.id} onClick={() => setPlan(item.id)}>
+                {item.displayPrice}
               </button>
             ))}
           </div>
+          <button className="primary-action full-width" type="button" onClick={() => checkout(plan)}>
+            <CreditCard size={18} />
+            Activate {visiblePlans.find((item) => item.id === plan)?.name || plan}
+          </button>
           <div className="unit-economics">
+            <Metric label="Current billing status" value={subscription?.status || 'trialing'} />
             <Metric label="Gross margin target" value="75-85%" />
-            <Metric label="API cost per client" value="$4-$12" />
+            <Metric label="API cost per client" value="₦4K-₦18K" />
             <Metric label="MVP launch goal" value="20 clients" />
             <Metric label="Month 9 target" value="100 clients" />
           </div>
@@ -781,6 +1050,73 @@ function Metric({ label, value }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function mergePlatforms(serverPlatforms) {
+  return platformSeed.map((seed) => {
+    const serverPlatform = serverPlatforms.find((item) => item.id === seed.id);
+    const connected = Boolean(serverPlatform?.connected);
+    return {
+      ...seed,
+      connected,
+      handle: serverPlatform?.handle || seed.handle,
+      status: connected ? 'Connected' : seed.status,
+      connectedAt: serverPlatform?.connectedAt || null,
+    };
+  });
+}
+
+function queueFromData(campaigns, publishJobs) {
+  const jobRows = jobsToQueue(publishJobs, campaigns);
+  const campaignRows = campaigns
+    .filter((campaign) => !publishJobs.some((job) => job.campaignId === campaign.id))
+    .map((campaign) => {
+      const created = new Date(campaign.createdAt);
+      return {
+        id: campaign.id,
+        title: campaign.title,
+        channel: 'Draft campaign',
+        date: created.toISOString().slice(0, 10),
+        time: created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: campaign.status,
+        progress: statusProgress(campaign.status),
+      };
+    });
+
+  return [...jobRows, ...campaignRows].length ? [...jobRows, ...campaignRows] : sampleCampaigns;
+}
+
+function jobsToQueue(jobs, campaigns) {
+  return jobs.map((job) => {
+    const campaign = campaigns.find((item) => item.id === job.campaignId);
+    const platform = platformSeed.find((item) => item.id === job.platformId);
+    const publishDate = new Date(job.publishAt || job.createdAt);
+    return {
+      id: job.id,
+      title: campaign?.title || 'Scheduled campaign',
+      channel: platform?.name || job.platformId,
+      date: publishDate.toISOString().slice(0, 10),
+      time: publishDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: prettyStatus(job.status),
+      progress: statusProgress(job.status),
+    };
+  });
+}
+
+function prettyStatus(status = '') {
+  return status
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function statusProgress(status = '') {
+  if (status.includes('published')) return 100;
+  if (status.includes('scheduled')) return 78;
+  if (status.includes('approval')) return 56;
+  if (status.includes('ready')) return 68;
+  if (status.includes('blocked')) return 20;
+  return 42;
 }
 
 function buildCampaign(source, platformIds) {

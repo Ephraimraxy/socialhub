@@ -41,8 +41,9 @@ Frontend:
 Backend:
 
 - Node.js API
-- PostgreSQL
-- Redis queue
+- File-backed store for this first deployable MVP
+- PostgreSQL adapter for the production hardening phase
+- Redis queue for the production hardening phase
 - Object storage for video and audio assets
 - Encrypted OAuth token storage
 - Paystack subscription and webhook processing
@@ -128,4 +129,4 @@ Publishing:
 
 ## Best First Implementation
 
-Start with a frontend prototype and a mocked publishing workflow. Then build the backend around the exact screens and states that the prototype proves useful.
+The current deployable MVP includes auth, tenant creation, Paystack checkout initialization, Claude campaign generation, ElevenLabs voice generation, render placeholders, and publishing job simulation. The production hardening step is to replace file persistence with PostgreSQL, add encrypted OAuth token storage, and complete platform app reviews.

@@ -24,17 +24,21 @@ This app is prepared for GitHub-to-Railway CI/CD:
 - Platform connection prototype
 - AI campaign generator prototype
 - Publishing queue prototype
+- User registration and login
+- Tenant/workspace bootstrap
+- Paystack checkout initialization with mock fallback
+- Claude campaign generation with mock fallback
+- ElevenLabs voice asset generation with mock fallback
+- Render asset placeholder and publishing job workflow
 - Full workflow map
 - Build blueprint and business model view
 
 ## What comes next
 
-- Backend API scaffold
-- Database schema
-- Paystack subscriptions for the first Nigeria-ready billing path
+- PostgreSQL persistence adapter
+- Encrypted OAuth token vault
+- Full Paystack subscription verification and plan management
 - Optional Stripe adapter later for Stripe Atlas or supported-country expansion
-- OAuth token vault
-- Claude API integration
-- ElevenLabs voice generation
 - Video rendering worker
-- Platform publishing APIs
+- YouTube, Meta, and TikTok production OAuth/app review flows
+- Platform publishing APIs beyond the current simulation

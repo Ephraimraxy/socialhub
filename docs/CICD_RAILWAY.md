@@ -26,9 +26,10 @@ For this current frontend prototype, Railway only needs:
 ```text
 NODE_ENV=production
 PORT=3000
+AUTH_SECRET=
 ```
 
-Railway usually injects `PORT` automatically, so you do not normally need to set it manually.
+Railway usually injects `PORT` automatically, so you do not normally need to set it manually. Set `AUTH_SECRET` to a long random value before real users create accounts.
 
 For the paid SaaS backend phase, add:
 
@@ -36,8 +37,14 @@ For the paid SaaS backend phase, add:
 PAYSTACK_SECRET_KEY=
 PAYSTACK_PUBLIC_KEY=
 PAYSTACK_WEBHOOK_SECRET=
+PAYSTACK_PLAN_STARTER=
+PAYSTACK_PLAN_GROWTH=
+PAYSTACK_PLAN_AGENCY=
 ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=
 ELEVENLABS_API_KEY=
+ELEVENLABS_VOICE_ID=
+ELEVENLABS_MODEL=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 META_APP_ID=

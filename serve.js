@@ -1,6 +1,7 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve } from 'node:path';
+import { handleApi } from './server/routes.js';
 
 const port = Number(process.env.PORT || 3000);
 const distRoot = resolve('dist');
@@ -33,10 +34,21 @@ function resolveAsset(urlPath) {
   return join(distRoot, 'index.html');
 }
 
-const server = createServer((request, response) => {
+const server = createServer(async (request, response) => {
+  response.setHeader('x-powered-by', 'SocialHub');
+
   if (request.url === '/health') {
     response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
     response.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (request.url?.startsWith('/api/')) {
+    const handled = await handleApi(request, response);
+    if (handled) return;
+
+    response.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
+    response.end(JSON.stringify({ error: 'API route not found' }));
     return;
   }
 
