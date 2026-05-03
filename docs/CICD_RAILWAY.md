@@ -2,7 +2,7 @@
 
 ## Target Flow
 
-1. Code is pushed to `Ephraimraxy/social-ai-studio` on GitHub.
+1. Code is pushed to `Ephraimraxy/socialhub` on GitHub.
 2. GitHub Actions runs `npm ci` and `npm run build`.
 3. Railway watches the GitHub repository.
 4. Every successful push to `main` triggers a Railway deploy.
@@ -14,7 +14,7 @@
 Create a new Railway project and choose:
 
 - Deploy from GitHub repo.
-- Repository: `Ephraimraxy/social-ai-studio`.
+- Repository: `Ephraimraxy/socialhub`.
 - Branch: `main`.
 - Build command: Railway will read `railway.json`.
 - Start command: Railway will read `railway.json`.
@@ -50,10 +50,10 @@ REDIS_URL=
 
 ## GitHub Repo Setup
 
-Create an empty repository named `social-ai-studio` under `Ephraimraxy`, then push this project:
+Use the repository named `socialhub` under `Ephraimraxy`, then push this project:
 
 ```powershell
-git remote add origin https://github.com/Ephraimraxy/social-ai-studio.git
+git remote add origin https://github.com/Ephraimraxy/socialhub.git
 git branch -M main
 git push -u origin main
 ```
