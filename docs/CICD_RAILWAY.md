@@ -18,6 +18,7 @@ Create a new Railway project and choose:
 - Branch: `main`.
 - Build command: Railway will read `railway.json`.
 - Start command: Railway will read `railway.json`.
+- Node version: Railway will read `nixpacks.toml` and use Node 24.
 
 ## Required Railway Variables
 
