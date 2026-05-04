@@ -187,3 +187,49 @@ async function parseTokenResponse(response, providerName) {
   }
   return payload;
 }
+
+export function isGoogleAuthConfigured() {
+  return Boolean(appConfig.googleClientId && appConfig.googleClientSecret);
+}
+
+export function buildGoogleAuthUrl({ state }) {
+  requireConfigured('Google Sign-In', [
+    { name: 'GOOGLE_CLIENT_ID', value: appConfig.googleClientId },
+    { name: 'GOOGLE_CLIENT_SECRET', value: appConfig.googleClientSecret },
+  ]);
+  const redirectUri = `${appConfig.baseUrl.replace(/\/$/, '')}/api/auth/google/callback`;
+  const params = new URLSearchParams({
+    client_id: appConfig.googleClientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: 'openid profile email',
+    state,
+    access_type: 'offline',
+    prompt: 'select_account',
+  });
+  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+}
+
+export async function exchangeGoogleAuthCode(code) {
+  const redirectUri = `${appConfig.baseUrl.replace(/\/$/, '')}/api/auth/google/callback`;
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id: appConfig.googleClientId,
+      client_secret: appConfig.googleClientSecret,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
+    }),
+  });
+  return parseTokenResponse(response, 'Google Sign-In');
+}
+
+export async function fetchGoogleProfile(accessToken) {
+  const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) throw new Error('Failed to fetch Google profile');
+  return response.json();
+}

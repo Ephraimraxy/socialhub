@@ -3,7 +3,15 @@ import { extname } from 'node:path';
 import { hashPassword, createToken, requireUser, verifyPassword, verifyToken, getBearerToken } from './auth.js';
 import { appConfig, formatMoney, platformCatalog } from './config.js';
 import { generateCampaignDraft } from './ai.js';
-import { buildAuthorizationUrl, encryptTokenPayload, exchangeOAuthCode } from './oauth.js';
+import {
+  buildAuthorizationUrl,
+  buildGoogleAuthUrl,
+  encryptTokenPayload,
+  exchangeGoogleAuthCode,
+  exchangeOAuthCode,
+  fetchGoogleProfile,
+  isGoogleAuthConfigured,
+} from './oauth.js';
 import { getReadiness } from './readiness.js';
 import { createRenderAsset, createVoiceAsset } from './voice.js';
 import { getPlan, initializeCheckout, verifyPaystackSignature } from './paystack.js';
@@ -214,6 +222,8 @@ async function register(request, response) {
       email,
       passwordHash: hashPassword(body.password),
       role: 'owner',
+      onboarded: false,
+      avatar: '',
       createdAt: nowIso(),
     };
     const brandProfile = {
@@ -272,11 +282,12 @@ async function login(request, response) {
 
 function me(request, response) {
   const user = verifyToken(getBearerToken(request));
+  const authProviders = { google: isGoogleAuthConfigured() };
   if (!user) {
-    sendJson(response, 200, { user: null });
+    sendJson(response, 200, { user: null, authProviders });
     return;
   }
-  sendJson(response, 200, bootstrapPayload(user));
+  sendJson(response, 200, { ...bootstrapPayload(user), authProviders });
 }
 
 async function updateBrandProfile(request, response) {
@@ -743,6 +754,124 @@ async function runPublishJob(request, response, jobId) {
   sendJson(response, 200, { job });
 }
 
+async function startGoogleAuth(request, response) {
+  const state = createId('gauth');
+  mutateStore((data) => {
+    data.oauthStates.push({
+      id: state,
+      tenantId: null,
+      userId: null,
+      platformId: 'auth',
+      provider: 'google_auth',
+      createdAt: nowIso(),
+    });
+  });
+  const authorizationUrl = buildGoogleAuthUrl({ state });
+  sendJson(response, 200, { authorizationUrl });
+}
+
+async function googleAuthCallback(request, response) {
+  const url = new URL(request.url, 'http://localhost');
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+
+  if (!code || !state) {
+    response.writeHead(302, { location: '/?auth_error=missing_code' });
+    response.end();
+    return;
+  }
+
+  const storedState = readStore().oauthStates.find((item) => item.id === state && item.provider === 'google_auth');
+  if (!storedState) {
+    response.writeHead(302, { location: '/?auth_error=invalid_state' });
+    response.end();
+    return;
+  }
+
+  try {
+    const tokenPayload = await exchangeGoogleAuthCode(code);
+    const profile = await fetchGoogleProfile(tokenPayload.access_token);
+    const email = normalizeEmail(profile.email);
+
+    const result = mutateStore((data) => {
+      data.oauthStates = data.oauthStates.filter((item) => item.id !== state);
+
+      let dbUser = data.users.find((item) => item.email === email);
+      let isNew = false;
+
+      if (!dbUser) {
+        isNew = true;
+        const tenant = { id: createId('tenant'), name: profile.name || email, createdAt: nowIso() };
+        dbUser = {
+          id: createId('user'),
+          tenantId: tenant.id,
+          name: profile.name || email,
+          email,
+          passwordHash: '',
+          googleId: profile.sub || '',
+          avatar: profile.picture || '',
+          role: 'owner',
+          onboarded: false,
+          createdAt: nowIso(),
+        };
+        data.tenants.push(tenant);
+        data.users.push(dbUser);
+        data.brandProfiles.push({
+          id: createId('brand'),
+          tenantId: tenant.id,
+          voice: '', audience: '', offer: '',
+          createdAt: nowIso(), updatedAt: nowIso(),
+        });
+        data.subscriptions.push({
+          id: createId('sub'),
+          tenantId: tenant.id,
+          planId: 'starter',
+          provider: 'none',
+          status: 'trialing',
+          currentPeriodEnd: null,
+          createdAt: nowIso(), updatedAt: nowIso(),
+        });
+      } else {
+        if (!dbUser.googleId && profile.sub) dbUser.googleId = profile.sub;
+        if (!dbUser.avatar && profile.picture) dbUser.avatar = profile.picture;
+      }
+
+      return { user: publicUser(dbUser, data), isNew };
+    });
+
+    const token = createToken(result.user);
+    response.writeHead(302, { location: `/?token=${encodeURIComponent(token)}` });
+    response.end();
+  } catch (error) {
+    console.error(error);
+    response.writeHead(302, { location: `/?auth_error=${encodeURIComponent(error.message)}` });
+    response.end();
+  }
+}
+
+async function completeOnboarding(request, response) {
+  const user = requireUser(request);
+  const body = await readJson(request);
+
+  mutateStore((data) => {
+    const profile = data.brandProfiles.find((item) => item.tenantId === user.tenantId);
+    if (profile) {
+      if (body.voice) profile.voice = body.voice;
+      if (body.audience) profile.audience = body.audience;
+      if (body.offer) profile.offer = body.offer;
+      if (body.niche) profile.niche = body.niche;
+      if (body.role) profile.role = body.role;
+      profile.updatedAt = nowIso();
+    }
+    const tenant = data.tenants.find((item) => item.id === user.tenantId);
+    if (tenant && body.company) tenant.name = body.company;
+    const dbUser = data.users.find((item) => item.id === user.id);
+    if (dbUser) dbUser.onboarded = true;
+  });
+
+  sendJson(response, 200, bootstrapPayload(user));
+}
+
 function listAssets(request, response, assetId) {
   const user = requireUser(request);
   const data = readStore();
@@ -788,6 +917,18 @@ export async function handleApi(request, response) {
     }
     if (request.method === 'POST' && pathname === '/api/auth/login') {
       await login(request, response);
+      return true;
+    }
+    if (request.method === 'POST' && pathname === '/api/auth/google/start') {
+      await startGoogleAuth(request, response);
+      return true;
+    }
+    if (request.method === 'GET' && pathname === '/api/auth/google/callback') {
+      await googleAuthCallback(request, response);
+      return true;
+    }
+    if (request.method === 'POST' && pathname === '/api/onboarding/complete') {
+      await completeOnboarding(request, response);
       return true;
     }
     if (request.method === 'GET' && pathname === '/api/me') {

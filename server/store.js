@@ -120,6 +120,8 @@ export function publicUser(user, data) {
     email: user.email,
     role: user.role,
     platformAdmin: isPlatformAdmin(user),
+    onboarded: user.onboarded !== false,
+    avatar: user.avatar || '',
     createdAt: user.createdAt,
   };
 }

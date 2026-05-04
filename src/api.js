@@ -62,4 +62,6 @@ export const api = {
   scheduleCampaign: (campaignId, body) =>
     apiRequest(`/api/campaigns/${campaignId}/schedule`, { method: 'POST', body }),
   runJob: (jobId) => apiRequest(`/api/jobs/${jobId}/run`, { method: 'POST' }),
+  startGoogleAuth: () => apiRequest('/api/auth/google/start', { method: 'POST' }),
+  completeOnboarding: (body) => apiRequest('/api/onboarding/complete', { method: 'POST', body }),
 };

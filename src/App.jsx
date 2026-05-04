@@ -179,6 +179,7 @@ function App() {
     elevenLabsVoices: [],
     errors: [],
   });
+  const [authProviders, setAuthProviders] = useState({ google: false });
 
   const connectedCount = platforms.filter((platform) => platform.connected).length;
   const directPlatforms = platforms.filter((platform) => platform.automation === 'Direct').length;
@@ -192,13 +193,25 @@ function App() {
 
   useEffect(() => {
     let mounted = true;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
+    const authError = urlParams.get('auth_error');
+    if (urlToken) {
+      setToken(urlToken);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    if (authError) {
+      setApiError(decodeURIComponent(authError));
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
     api
       .me()
       .then((payload) => {
         if (!mounted) return;
-        if (payload.user) {
-          hydrate(payload);
-        }
+        if (payload.authProviders) setAuthProviders(payload.authProviders);
+        if (payload.user) hydrate(payload);
       })
       .catch((error) => setApiError(error.message))
       .finally(() => mounted && setBooting(false));
@@ -240,6 +253,26 @@ function App() {
         ? await api.login(payload)
         : await api.register(payload);
       setToken(result.token);
+      hydrate(result);
+    } catch (error) {
+      setApiError(error.message);
+    }
+  }
+
+  async function handleGoogleAuth() {
+    setApiError('');
+    try {
+      const result = await api.startGoogleAuth();
+      window.location.href = result.authorizationUrl;
+    } catch (error) {
+      setApiError(error.message);
+    }
+  }
+
+  async function finishOnboarding(answers) {
+    setApiError('');
+    try {
+      const result = await api.completeOnboarding(answers);
       hydrate(result);
     } catch (error) {
       setApiError(error.message);
@@ -437,7 +470,24 @@ function App() {
   }
 
   if (!session) {
-    return <AuthScreen onSubmit={handleAuth} error={apiError} />;
+    return (
+      <AuthScreen
+        onSubmit={handleAuth}
+        onGoogleAuth={handleGoogleAuth}
+        googleAvailable={authProviders.google}
+        error={apiError}
+      />
+    );
+  }
+
+  if (!session.onboarded) {
+    return (
+      <OnboardingWizard
+        user={session}
+        onComplete={finishOnboarding}
+        error={apiError}
+      />
+    );
   }
 
   return (
@@ -565,15 +615,11 @@ function NavButton({ icon: Icon, id, label, activeView, setActiveView }) {
   );
 }
 
-function AuthScreen({ onSubmit, error }) {
+function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
   const [mode, setMode] = useState('register');
-  const [form, setForm] = useState({
-    name: '',
-    company: '',
-    email: '',
-    password: '',
-  });
+  const [form, setForm] = useState({ name: '', company: '', email: '', password: '' });
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const isRegister = mode === 'register';
 
   function updateField(key, value) {
@@ -590,20 +636,32 @@ function AuthScreen({ onSubmit, error }) {
     }
   }
 
+  async function handleGoogle() {
+    setGoogleBusy(true);
+    try {
+      await onGoogleAuth();
+    } finally {
+      setGoogleBusy(false);
+    }
+  }
+
   return (
-    <main className="auth-screen">
-      <section className="auth-panel">
-        <div className="brand-lockup auth-brand" aria-label="SocialHub">
-          <img className="brand-mark" src="/favicon.svg" alt="" />
+    <main className="auth-screen auth-screen-purple">
+      <div className="auth-glow" />
+      <section className="auth-panel auth-panel-purple">
+        <div className="auth-logo-row">
+          <div className="auth-logo-mark">
+            <Sparkles size={22} />
+          </div>
           <div>
             <strong>SocialHub</strong>
-            <span>Client content automation</span>
+            <span>AI Content Platform</span>
           </div>
         </div>
 
-        <div>
-          <p className="eyebrow">SaaS Access</p>
-          <h1>{isRegister ? 'Create your workspace' : 'Sign in'}</h1>
+        <div className="auth-heading">
+          <h1>{isRegister ? 'Create your workspace' : 'Welcome back'}</h1>
+          <p>{isRegister ? 'Start publishing smarter in minutes.' : 'Sign in to your workspace.'}</p>
         </div>
 
         {error && (
@@ -613,54 +671,312 @@ function AuthScreen({ onSubmit, error }) {
           </div>
         )}
 
+        {googleAvailable && (
+          <>
+            <button className="google-auth-btn" type="button" onClick={handleGoogle} disabled={googleBusy}>
+              {googleBusy ? (
+                <Loader2 className="spin" size={18} />
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                  <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"/>
+                  <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"/>
+                  <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z"/>
+                  <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z"/>
+                </svg>
+              )}
+              {isRegister ? 'Continue with Google' : 'Sign in with Google'}
+            </button>
+            <div className="auth-divider">
+              <span>or continue with email</span>
+            </div>
+          </>
+        )}
+
         <form className="auth-form" onSubmit={submit}>
           {isRegister && (
             <>
               <label>
-                <span>Name</span>
-                <input value={form.name} onChange={(event) => updateField('name', event.target.value)} />
+                <span>Full name</span>
+                <input value={form.name} onChange={(e) => updateField('name', e.target.value)} placeholder="Jane Smith" />
               </label>
               <label>
-                <span>Company</span>
-                <input value={form.company} onChange={(event) => updateField('company', event.target.value)} />
+                <span>Company / Brand</span>
+                <input value={form.company} onChange={(e) => updateField('company', e.target.value)} placeholder="Acme Media" />
               </label>
             </>
           )}
           <label>
-            <span>Email</span>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(event) => updateField('email', event.target.value)}
-              required
-            />
+            <span>Email address</span>
+            <input type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} placeholder="jane@company.com" required />
           </label>
           <label>
             <span>Password</span>
-            <input
-              type="password"
-              value={form.password}
-              onChange={(event) => updateField('password', event.target.value)}
-              required
-              minLength={6}
-            />
+            <input type="password" value={form.password} onChange={(e) => updateField('password', e.target.value)} placeholder="Min. 6 characters" required minLength={6} />
           </label>
 
-          <button className="primary-action large-action" type="submit" disabled={busy}>
+          <button className="purple-primary-btn" type="submit" disabled={busy}>
             {busy ? <Loader2 className="spin" size={18} /> : isRegister ? <UserPlus size={18} /> : <KeyRound size={18} />}
-            {busy ? 'Working' : isRegister ? 'Create workspace' : 'Sign in'}
+            {busy ? 'Working…' : isRegister ? 'Create workspace' : 'Sign in'}
           </button>
         </form>
 
-        <button
-          className="secondary-action full-width"
-          type="button"
-          onClick={() => setMode(isRegister ? 'login' : 'register')}
-        >
-          {isRegister ? 'I already have an account' : 'Create a new workspace'}
+        <button className="auth-toggle-btn" type="button" onClick={() => setMode(isRegister ? 'login' : 'register')}>
+          {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
         </button>
       </section>
     </main>
+  );
+}
+
+const ONBOARDING_ROLES = [
+  { id: 'creator', label: 'Solo Creator', desc: 'Independent content creator building a personal brand' },
+  { id: 'agency', label: 'Agency', desc: 'Running content for multiple clients' },
+  { id: 'brand', label: 'Brand / Business', desc: 'Marketing for a company or product' },
+  { id: 'team', label: 'Marketing Team', desc: 'Collaborative team managing social presence' },
+];
+
+const ONBOARDING_NICHES = [
+  'E-commerce', 'Health & Wellness', 'Fashion & Beauty', 'Technology', 'Food & Lifestyle',
+  'Entertainment', 'Real Estate', 'Finance', 'Education', 'Travel', 'Sports & Fitness', 'Other',
+];
+
+const ONBOARDING_TONES = [
+  { id: 'professional', label: 'Professional', emoji: '💼' },
+  { id: 'friendly', label: 'Friendly', emoji: '😊' },
+  { id: 'bold', label: 'Bold & Direct', emoji: '⚡' },
+  { id: 'playful', label: 'Playful', emoji: '🎉' },
+  { id: 'educational', label: 'Educational', emoji: '📚' },
+  { id: 'inspirational', label: 'Inspirational', emoji: '✨' },
+];
+
+function OnboardingWizard({ user, onComplete, error }) {
+  const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const [animating, setAnimating] = useState(false);
+  const [answers, setAnswers] = useState({
+    role: '',
+    niche: '',
+    platforms: [],
+    company: user?.name || '',
+    audience: '',
+    voice: '',
+    offer: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const TOTAL_STEPS = 5;
+
+  function setAnswer(key, value) {
+    setAnswers((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function togglePlatform(id) {
+    setAnswers((prev) => ({
+      ...prev,
+      platforms: prev.platforms.includes(id)
+        ? prev.platforms.filter((p) => p !== id)
+        : [...prev.platforms, id],
+    }));
+  }
+
+  function goTo(next) {
+    if (animating) return;
+    setDirection(next > step ? 1 : -1);
+    setAnimating(true);
+    setTimeout(() => {
+      setStep(next);
+      setAnimating(false);
+    }, 220);
+  }
+
+  async function finish() {
+    setSubmitting(true);
+    try {
+      await onComplete({
+        role: answers.role,
+        niche: answers.niche,
+        company: answers.company,
+        audience: answers.audience,
+        voice: answers.voice,
+        offer: answers.offer,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const progressPct = Math.round((step / (TOTAL_STEPS - 1)) * 100);
+
+  return (
+    <div className="onboard-screen">
+      <div className="onboard-glow" />
+      <div className="onboard-panel">
+        {step < TOTAL_STEPS - 1 && (
+          <div className="onboard-progress">
+            <div className="onboard-progress-bar">
+              <div className="onboard-progress-fill" style={{ width: `${progressPct}%` }} />
+            </div>
+            <span className="onboard-step-label">{step + 1} of {TOTAL_STEPS - 1}</span>
+          </div>
+        )}
+
+        <div className={`onboard-step ${animating ? (direction > 0 ? 'slide-out-left' : 'slide-out-right') : 'slide-in'}`}>
+
+          {step === 0 && (
+            <div className="onboard-body">
+              <div className="onboard-icon-badge"><Users size={28} /></div>
+              <h2>What best describes you?</h2>
+              <p>Help us tailor your workspace for the way you work.</p>
+              <div className="role-grid">
+                {ONBOARDING_ROLES.map((r) => (
+                  <button
+                    key={r.id}
+                    className={`role-card ${answers.role === r.id ? 'is-selected' : ''}`}
+                    type="button"
+                    onClick={() => setAnswer('role', r.id)}
+                  >
+                    <strong>{r.label}</strong>
+                    <span>{r.desc}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="onboard-actions">
+                <button className="purple-primary-btn" type="button" onClick={() => goTo(1)} disabled={!answers.role}>
+                  Continue <ArrowRight size={17} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 1 && (
+            <div className="onboard-body">
+              <div className="onboard-icon-badge"><Sparkles size={28} /></div>
+              <h2>What's your primary niche?</h2>
+              <p>Your AI content will be tuned to your industry.</p>
+              <div className="niche-grid">
+                {ONBOARDING_NICHES.map((n) => (
+                  <button
+                    key={n}
+                    className={`niche-chip ${answers.niche === n ? 'is-selected' : ''}`}
+                    type="button"
+                    onClick={() => setAnswer('niche', n)}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <div className="onboard-actions">
+                <button className="onboard-back-btn" type="button" onClick={() => goTo(0)}>Back</button>
+                <button className="purple-primary-btn" type="button" onClick={() => goTo(2)} disabled={!answers.niche}>
+                  Continue <ArrowRight size={17} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="onboard-body">
+              <div className="onboard-icon-badge"><PlugZap size={28} /></div>
+              <h2>Which platforms do you publish on?</h2>
+              <p>Connect them later — just let us know what you use.</p>
+              <div className="platform-pick-grid">
+                {platformSeed.map((p) => (
+                  <button
+                    key={p.id}
+                    className={`platform-pick-card ${answers.platforms.includes(p.id) ? 'is-selected' : ''}`}
+                    type="button"
+                    onClick={() => togglePlatform(p.id)}
+                  >
+                    <span className="platform-dot" style={{ background: p.color }} />
+                    <strong>{p.name}</strong>
+                    {answers.platforms.includes(p.id) && <Check size={15} className="pick-check" />}
+                  </button>
+                ))}
+              </div>
+              <div className="onboard-actions">
+                <button className="onboard-back-btn" type="button" onClick={() => goTo(1)}>Back</button>
+                <button className="purple-primary-btn" type="button" onClick={() => goTo(3)}>
+                  Continue <ArrowRight size={17} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="onboard-body">
+              <div className="onboard-icon-badge"><Wand2 size={28} /></div>
+              <h2>Tell us about your brand</h2>
+              <p>This powers your AI content — fill in what you know.</p>
+              <div className="onboard-form">
+                <label>
+                  <span>Brand / Company name</span>
+                  <input value={answers.company} onChange={(e) => setAnswer('company', e.target.value)} placeholder="e.g. Acme Media" />
+                </label>
+                <label>
+                  <span>Target audience</span>
+                  <input value={answers.audience} onChange={(e) => setAnswer('audience', e.target.value)} placeholder="e.g. Nigerian entrepreneurs aged 25–40" />
+                </label>
+                <label>
+                  <span>What are you selling or promoting?</span>
+                  <input value={answers.offer} onChange={(e) => setAnswer('offer', e.target.value)} placeholder="e.g. Online fitness coaching" />
+                </label>
+                <div>
+                  <span className="onboard-form-label">Tone of voice</span>
+                  <div className="tone-grid">
+                    {ONBOARDING_TONES.map((t) => (
+                      <button
+                        key={t.id}
+                        className={`tone-chip ${answers.voice === t.id ? 'is-selected' : ''}`}
+                        type="button"
+                        onClick={() => setAnswer('voice', t.id)}
+                      >
+                        <span>{t.emoji}</span>
+                        <span>{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="onboard-actions">
+                <button className="onboard-back-btn" type="button" onClick={() => goTo(2)}>Back</button>
+                <button className="purple-primary-btn" type="button" onClick={() => goTo(4)}>
+                  Continue <ArrowRight size={17} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="onboard-body onboard-done">
+              <div className="done-burst">
+                <Rocket size={42} />
+              </div>
+              <h2>You're all set, {user?.name?.split(' ')[0] || 'there'}!</h2>
+              <p>Your workspace is configured. Time to create your first AI campaign.</p>
+              <div className="done-summary">
+                {answers.role && <span className="done-tag">{ONBOARDING_ROLES.find((r) => r.id === answers.role)?.label}</span>}
+                {answers.niche && <span className="done-tag">{answers.niche}</span>}
+                {answers.platforms.length > 0 && <span className="done-tag">{answers.platforms.length} platform{answers.platforms.length > 1 ? 's' : ''}</span>}
+              </div>
+              {error && (
+                <div className="alert-bar auth-alert" role="alert">
+                  <CircleAlert size={18} />
+                  <span>{error}</span>
+                </div>
+              )}
+              <div className="onboard-actions onboard-actions-center">
+                <button className="purple-primary-btn large-purple-btn" type="button" onClick={finish} disabled={submitting}>
+                  {submitting ? <Loader2 className="spin" size={18} /> : <Rocket size={18} />}
+                  {submitting ? 'Setting up…' : 'Launch my workspace'}
+                </button>
+                <button className="onboard-back-btn" type="button" onClick={() => goTo(3)}>Back</button>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
   );
 }
 
