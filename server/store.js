@@ -5,6 +5,8 @@ import { appConfig } from './config.js';
 
 const storePath = resolve(join(appConfig.dataDir, 'socialhub.json'));
 
+const initTime = new Date().toISOString();
+
 const initialData = {
   users: [],
   tenants: [],
@@ -20,7 +22,7 @@ const initialData = {
     anthropicModel: '',
     elevenLabsModel: 'eleven_multilingual_v2',
     elevenLabsVoiceId: '',
-    updatedAt: '2026-05-04T00:00:00.000Z',
+    updatedAt: initTime,
   },
   subscriptionPlans: [
     {
@@ -32,8 +34,8 @@ const initialData = {
       platformLimit: 4,
       paystackPlanCode: '',
       active: true,
-      createdAt: '2026-05-04T00:00:00.000Z',
-      updatedAt: '2026-05-04T00:00:00.000Z',
+      createdAt: initTime,
+      updatedAt: initTime,
     },
     {
       id: 'growth',
@@ -44,8 +46,8 @@ const initialData = {
       platformLimit: 4,
       paystackPlanCode: '',
       active: true,
-      createdAt: '2026-05-04T00:00:00.000Z',
-      updatedAt: '2026-05-04T00:00:00.000Z',
+      createdAt: initTime,
+      updatedAt: initTime,
     },
     {
       id: 'agency',
@@ -56,8 +58,8 @@ const initialData = {
       platformLimit: 4,
       paystackPlanCode: '',
       active: true,
-      createdAt: '2026-05-04T00:00:00.000Z',
-      updatedAt: '2026-05-04T00:00:00.000Z',
+      createdAt: initTime,
+      updatedAt: initTime,
     },
   ],
 };

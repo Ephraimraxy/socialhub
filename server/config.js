@@ -7,7 +7,7 @@ function parseAdminEmails(value = '') {
 
 export const appConfig = {
   appName: 'SocialHub',
-  baseUrl: process.env.APP_BASE_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:3000',
+  baseUrl: process.env.APP_BASE_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '') || 'http://localhost:3000',
   authSecret: process.env.AUTH_SECRET || '',
   platformAdminEmails: parseAdminEmails(process.env.PLATFORM_ADMIN_EMAIL || process.env.PLATFORM_ADMIN_EMAILS || process.env.ADMIN_EMAIL || ''),
   dataDir: process.env.DATA_DIR || 'data',

@@ -33,8 +33,9 @@ async function listClaudeModels() {
 }
 
 async function listElevenLabsModels() {
+  if (!appConfig.elevenLabsApiKey) return [];
   const payload = await fetchJson('https://api.elevenlabs.io/v1/models', {
-    headers: appConfig.elevenLabsApiKey ? { 'xi-api-key': appConfig.elevenLabsApiKey } : {},
+    headers: { 'xi-api-key': appConfig.elevenLabsApiKey },
   });
   const models = (Array.isArray(payload) ? payload : [])
     .filter((model) => model.can_do_text_to_speech !== false)
@@ -68,7 +69,7 @@ async function settle(label, task, fallback) {
 export async function listIntegrationOptions() {
   const [claude, elevenModels, elevenVoices] = await Promise.all([
     settle('claudeModels', listClaudeModels, fallbackClaudeModels),
-    settle('elevenLabsModels', listElevenLabsModels, fallbackElevenLabsModels),
+    settle('elevenLabsModels', listElevenLabsModels, []),
     settle('elevenLabsVoices', listElevenLabsVoices, []),
   ]);
 

@@ -39,11 +39,20 @@ import {
 } from 'lucide-react';
 import { api, setToken } from './api.js';
 
+function formatPrice(plan) {
+  if (!plan || !plan.priceMonthly) return '';
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: plan.currency || 'NGN',
+    maximumFractionDigits: 0,
+  }).format(plan.priceMonthly);
+}
+
 const platformSeed = [
   {
     id: 'youtube',
     name: 'YouTube',
-    handle: '@BrandChannel',
+    handle: '',
     color: '#d92d20',
     capability: 'Direct upload and schedule after Google verification',
     api: 'YouTube Data API videos.insert',
@@ -54,7 +63,7 @@ const platformSeed = [
   {
     id: 'instagram',
     name: 'Instagram',
-    handle: '@brandstudio',
+    handle: '',
     color: '#c13584',
     capability: 'Publish Reels and media for Business or Creator accounts',
     api: 'Instagram Graph API Content Publishing',
@@ -65,7 +74,7 @@ const platformSeed = [
   {
     id: 'facebook',
     name: 'Facebook',
-    handle: 'Brand Page',
+    handle: '',
     color: '#1877f2',
     capability: 'Publish to Facebook Pages with page permissions',
     api: 'Facebook Pages API',
@@ -76,7 +85,7 @@ const platformSeed = [
   {
     id: 'tiktok',
     name: 'TikTok',
-    handle: '@brandclips',
+    handle: '',
     color: '#111111',
     capability: 'Direct post if approved, otherwise inbox/manual approval',
     api: 'TikTok Content Posting API',
@@ -119,15 +128,15 @@ const phases = [
   },
 ];
 
-const apiMap = [
-  { label: 'Claude', owner: 'Anthropic', use: 'Ideas, scripts, captions, hashtags', readiness: 90 },
-  { label: 'ElevenLabs', owner: 'ElevenLabs', use: 'Voiceover generation', readiness: 85 },
-  { label: 'Renderer', owner: 'Remotion or Creatomate', use: 'Vertical video creation', readiness: 75 },
-  { label: 'YouTube', owner: 'Google', use: 'Video uploads and scheduling', readiness: 65 },
-  { label: 'Meta', owner: 'Facebook/Instagram', use: 'Page and Reels publishing', readiness: 60 },
-  { label: 'TikTok', owner: 'TikTok', use: 'Direct post or inbox approval', readiness: 45 },
-  { label: 'Paystack', owner: 'Paystack', use: 'Plans, recurring billing, invoices, limits', readiness: 90 },
-  { label: 'Stripe', owner: 'Stripe Atlas later', use: 'Optional international billing adapter', readiness: 55 },
+const serviceMap = [
+  { label: 'Claude', owner: 'Anthropic', use: 'Ideas, scripts, captions, hashtags', checkId: 'claude' },
+  { label: 'ElevenLabs', owner: 'ElevenLabs', use: 'Voiceover generation', checkId: 'elevenlabs' },
+  { label: 'Renderer', owner: 'Remotion or Creatomate', use: 'Vertical video creation', checkId: 'renderer' },
+  { label: 'R2 Storage', owner: 'Cloudflare', use: 'Media asset storage for renders', checkId: 'r2_storage' },
+  { label: 'YouTube', owner: 'Google', use: 'Video uploads and scheduling', checkId: 'google_oauth' },
+  { label: 'Meta', owner: 'Facebook/Instagram', use: 'Page and Reels publishing', checkId: 'meta_oauth' },
+  { label: 'TikTok', owner: 'TikTok', use: 'Direct post or inbox approval', checkId: 'tiktok_oauth' },
+  { label: 'Paystack', owner: 'Paystack', use: 'Plans, recurring billing, invoices, limits', checkId: 'paystack_secret' },
 ];
 
 const emptyQueue = [];
@@ -174,7 +183,7 @@ function App() {
   const connectedCount = platforms.filter((platform) => platform.connected).length;
   const directPlatforms = platforms.filter((platform) => platform.automation === 'Direct').length;
   const activePlan = plans.find((item) => item.id === plan);
-  const projectedCost = activePlan?.displayPrice || (plan === 'starter' ? 'NGN 25K' : plan === 'growth' ? 'NGN 65K' : 'NGN 150K');
+  const projectedCost = formatPrice(activePlan);
 
   const selectedPlatformNames = useMemo(
     () => platformSeed.filter((platform) => selectedPlatforms.includes(platform.id)).map((platform) => platform.name),
@@ -679,7 +688,7 @@ function Dashboard({ connectedCount, directPlatforms, projectedCost, queue, setA
           <BadgeDollarSign size={18} />
           <span>Starter price</span>
         </div>
-        <strong>${projectedCost}</strong>
+        <strong>{projectedCost || '—'}</strong>
         <p>Base monthly subscription target for early clients.</p>
       </div>
 
@@ -834,7 +843,7 @@ function Connections({ platforms, togglePlatform }) {
               <span className="platform-dot" style={{ background: platform.color }} />
               <div>
                 <strong>{platform.name}</strong>
-                <span>{platform.handle}</span>
+                {platform.handle && <span>{platform.handle}</span>}
               </div>
             </div>
             <p>{platform.capability}</p>
@@ -1023,13 +1032,7 @@ function Blueprint({
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [loadingOptions, setLoadingOptions] = useState(false);
-  const visiblePlans = plans.length
-    ? plans
-    : [
-        { id: 'starter', name: 'Starter', displayPrice: 'NGN 25K' },
-        { id: 'growth', name: 'Growth', displayPrice: 'NGN 65K' },
-        { id: 'agency', name: 'Agency', displayPrice: 'NGN 150K' },
-      ];
+  const visiblePlans = plans;
 
   const readinessPercent = readiness ? Math.round((readiness.completed / readiness.total) * 100) : 0;
   const readinessRows = (readiness?.checks || []).map((item) => ({
@@ -1171,7 +1174,7 @@ function Blueprint({
           <div className="pricing-toggle" role="group" aria-label="Pricing plan">
             {visiblePlans.map((item) => (
               <button className={plan === item.id ? 'is-selected' : ''} type="button" key={item.id} onClick={() => setPlan(item.id)}>
-                {item.displayPrice}
+                {formatPrice(item)}
               </button>
             ))}
           </div>
@@ -1249,7 +1252,7 @@ function Blueprint({
                 <article className="plan-item" key={item.id}>
                   <div>
                     <strong>{item.name}</strong>
-                    <span>{item.displayPrice} - {item.campaignLimit} campaigns - {item.paystackPlanCode || 'No Paystack code'}</span>
+                    <span>{formatPrice(item)} · {item.campaignLimit} campaigns · {item.paystackPlanCode || 'No Paystack code'}</span>
                   </div>
                   <div className="plan-actions">
                     <button className="icon-button" type="button" aria-label={`Edit ${item.name}`} onClick={() => editPlan(item)}>
@@ -1348,20 +1351,24 @@ function Blueprint({
           <StatusPill label={readiness?.requiredReady ? 'Core ready' : 'Setup required'} />
         </div>
         <div className="api-list">
-          {apiMap.map((api) => (
-            <article className="api-row" key={api.label}>
-              <div>
-                <strong>{api.label}</strong>
-                <span>{api.owner} · {api.use}</span>
-              </div>
-              <div className="readiness">
-                <span>{api.readiness}%</span>
-                <div className="progress-bar">
-                  <span style={{ width: `${api.readiness}%` }} />
+          {serviceMap.map((row) => {
+            const check = readiness?.checks?.find((c) => c.id === row.checkId);
+            const pct = check ? (check.ready ? 100 : 0) : null;
+            return (
+              <article className="api-row" key={row.label}>
+                <div>
+                  <strong>{row.label}</strong>
+                  <span>{row.owner} · {row.use}</span>
                 </div>
-              </div>
-            </article>
-          ))}
+                <div className="readiness">
+                  <span>{pct === null ? '—' : `${pct}%`}</span>
+                  <div className="progress-bar">
+                    <span style={{ width: `${pct ?? 0}%` }} />
+                  </div>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </section>
     </section>
