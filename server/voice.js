@@ -17,6 +17,10 @@ export async function createVoiceAsset({ tenantId, campaignId, text }) {
       { name: 'ELEVENLABS_API_KEY', value: appConfig.elevenLabsApiKey },
     ]);
   }
+  requireConfigured('ElevenLabs voice generation', [
+    { name: 'ELEVENLABS_VOICE_ID', value: appConfig.elevenLabsVoiceId },
+    { name: 'ELEVENLABS_MODEL', value: appConfig.elevenLabsModel },
+  ]);
 
   const response = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${appConfig.elevenLabsVoiceId}?output_format=mp3_44100_128`,

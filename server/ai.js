@@ -14,6 +14,9 @@ export async function generateCampaignDraft(input, brandProfile) {
       { name: 'ANTHROPIC_API_KEY', value: appConfig.anthropicApiKey },
     ]);
   }
+  requireConfigured('Claude campaign generation', [
+    { name: 'ANTHROPIC_MODEL', value: appConfig.anthropicModel },
+  ]);
 
   const prompt = [
     'Create a social media campaign draft as strict JSON only.',
