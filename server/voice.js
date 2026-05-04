@@ -1,12 +1,26 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { appConfig, requireConfigured } from './config.js';
+import { isR2Configured, putR2Object } from './r2.js';
 import { createId, mutateStore, nowIso } from './store.js';
 
 function assetPath(assetId, extension) {
   const folder = resolve(join(appConfig.dataDir, 'assets'));
   mkdirSync(folder, { recursive: true });
   return resolve(join(folder, `${assetId}.${extension}`));
+}
+
+async function persistAsset({ assetId, extension, contentType, body, keyPrefix }) {
+  const key = `${keyPrefix}/${assetId}.${extension}`;
+
+  if (isR2Configured()) {
+    const url = await putR2Object(key, body, contentType);
+    return { path: '', storageKey: key, storageProvider: 'cloudflare-r2', url };
+  }
+
+  const path = assetPath(assetId, extension);
+  writeFileSync(path, body);
+  return { path, storageKey: key, storageProvider: 'local', url: `/api/assets/${assetId}` };
 }
 
 export async function createVoiceAsset({ tenantId, campaignId, text }) {
@@ -43,8 +57,13 @@ export async function createVoiceAsset({ tenantId, campaignId, text }) {
   }
 
   const audio = Buffer.from(await response.arrayBuffer());
-  const path = assetPath(assetId, 'mp3');
-  writeFileSync(path, audio);
+  const stored = await persistAsset({
+    assetId,
+    extension: 'mp3',
+    contentType: 'audio/mpeg',
+    body: audio,
+    keyPrefix: `tenants/${tenantId}/campaigns/${campaignId}/voice`,
+  });
 
   return mutateStore((data) => {
     const asset = {
@@ -54,8 +73,10 @@ export async function createVoiceAsset({ tenantId, campaignId, text }) {
       type: 'voiceover',
       provider: 'elevenlabs',
       mimeType: 'audio/mpeg',
-      path,
-      url: `/api/assets/${assetId}`,
+      path: stored.path,
+      storageKey: stored.storageKey,
+      storageProvider: stored.storageProvider,
+      url: stored.url,
       createdAt: nowIso(),
     };
     data.mediaAssets.push(asset);
@@ -71,7 +92,6 @@ export async function createRenderAsset({ tenantId, campaignId, campaign }) {
   }
 
   const assetId = createId('asset');
-  const path = assetPath(assetId, 'json');
 
   let renderPlan;
 
@@ -101,7 +121,13 @@ export async function createRenderAsset({ tenantId, campaignId, campaign }) {
     campaignId,
   };
 
-  writeFileSync(path, JSON.stringify(renderPlan, null, 2));
+  const stored = await persistAsset({
+    assetId,
+    extension: 'json',
+    contentType: 'application/json; charset=utf-8',
+    body: JSON.stringify(renderPlan, null, 2),
+    keyPrefix: `tenants/${tenantId}/campaigns/${campaignId}/renders`,
+  });
 
   return mutateStore((data) => {
     const asset = {
@@ -111,8 +137,10 @@ export async function createRenderAsset({ tenantId, campaignId, campaign }) {
       type: 'video-render',
       provider: renderPlan.provider,
       mimeType: 'application/json',
-      path,
-      url: renderPlan.videoUrl || renderPlan.url || `/api/assets/${assetId}`,
+      path: stored.path,
+      storageKey: stored.storageKey,
+      storageProvider: stored.storageProvider,
+      url: renderPlan.videoUrl || renderPlan.url || stored.url,
       createdAt: nowIso(),
     };
     data.mediaAssets.push(asset);

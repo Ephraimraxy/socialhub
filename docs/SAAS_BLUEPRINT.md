@@ -44,7 +44,7 @@ Backend:
 - File-backed store for the first deployable product version
 - PostgreSQL adapter for the production hardening phase
 - Redis queue for the production hardening phase
-- Object storage for video and audio assets
+- Cloudflare R2 object storage for video and audio assets
 - Encrypted OAuth token storage
 - Paystack subscription and webhook processing
 - Optional Stripe adapter for later international expansion

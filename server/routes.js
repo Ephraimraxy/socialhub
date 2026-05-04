@@ -517,8 +517,20 @@ function listAssets(request, response, assetId) {
   const data = readStore();
   const asset = data.mediaAssets.find((item) => item.id === assetId && item.tenantId === user.tenantId);
 
-  if (!asset || !existsSync(asset.path)) {
+  if (!asset) {
     const error = new Error('Asset not found');
+    error.status = 404;
+    throw error;
+  }
+
+  if (asset.storageProvider === 'cloudflare-r2' && asset.url) {
+    response.writeHead(302, { location: asset.url });
+    response.end();
+    return;
+  }
+
+  if (!asset.path || !existsSync(asset.path)) {
+    const error = new Error('Asset file not found');
     error.status = 404;
     throw error;
   }

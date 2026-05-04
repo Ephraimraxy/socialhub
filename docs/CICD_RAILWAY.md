@@ -38,7 +38,6 @@ For the paid SaaS backend phase, add:
 ```text
 PAYSTACK_SECRET_KEY=
 PAYSTACK_PUBLIC_KEY=
-PAYSTACK_WEBHOOK_SECRET=
 PAYSTACK_PLAN_STARTER=
 PAYSTACK_PLAN_GROWTH=
 PAYSTACK_PLAN_AGENCY=
@@ -58,6 +57,11 @@ TIKTOK_CLIENT_KEY=
 TIKTOK_CLIENT_SECRET=
 DATABASE_URL=
 REDIS_URL=
+R2_ACCESS_KEY_ID=
+R2_ACCOUNT_ID=
+R2_BUCKET_NAME=
+R2_PUBLIC_URL=
+R2_SECRET_ACCESS_KEY=
 ```
 
 SocialHub does not include live fallback success paths. If Paystack, Claude, ElevenLabs, rendering, or OAuth variables are missing, the affected route returns a configuration error instead of pretending to complete the action.
