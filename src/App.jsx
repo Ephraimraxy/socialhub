@@ -163,6 +163,13 @@ function App() {
   const [plans, setPlans] = useState([]);
   const [subscription, setSubscription] = useState(null);
   const [readiness, setReadiness] = useState(null);
+  const [integrationSettings, setIntegrationSettings] = useState(null);
+  const [integrationOptions, setIntegrationOptions] = useState({
+    claudeModels: [],
+    elevenLabsModels: [],
+    elevenLabsVoices: [],
+    errors: [],
+  });
 
   const connectedCount = platforms.filter((platform) => platform.connected).length;
   const directPlatforms = platforms.filter((platform) => platform.automation === 'Direct').length;
@@ -198,6 +205,7 @@ function App() {
     setPlans(payload.plans || []);
     setSubscription(payload.subscription || null);
     setReadiness(payload.readiness || null);
+    setIntegrationSettings(payload.integrationSettings || null);
     setPlan(payload.subscription?.planId || payload.plans?.[0]?.id || 'starter');
     setQueue(queueFromData(payload.campaigns || [], payload.publishJobs || []));
 
@@ -319,6 +327,30 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    if (!session) return undefined;
+    const timer = window.setInterval(() => {
+      refreshRuntime(true);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [session?.id]);
+
+  async function refreshRuntime(silent = false) {
+    try {
+      const payload = await api.runtime();
+      setSession(payload.user || null);
+      setPlans(payload.plans || []);
+      setReadiness(payload.readiness || null);
+      setIntegrationSettings(payload.integrationSettings || null);
+      setPlan((current) => {
+        const nextPlans = payload.plans || [];
+        return nextPlans.some((item) => item.id === current) ? current : nextPlans[0]?.id || current;
+      });
+    } catch (error) {
+      if (!silent) setApiError(error.message);
+    }
+  }
+
   async function saveBillingPlan(payload) {
     setApiError('');
     const request = payload.originalId
@@ -349,6 +381,31 @@ function App() {
       if (!nextPlans.some((item) => item.id === plan)) {
         setPlan(nextPlans[0]?.id || '');
       }
+      return result;
+    } catch (error) {
+      setApiError(error.message);
+      throw error;
+    }
+  }
+
+  async function saveIntegrationSettings(payload) {
+    setApiError('');
+    try {
+      const result = await api.updateIntegrationSettings(payload);
+      setIntegrationSettings(result.integrationSettings || null);
+      setReadiness(result.readiness || null);
+      return result;
+    } catch (error) {
+      setApiError(error.message);
+      throw error;
+    }
+  }
+
+  async function refreshIntegrationOptions() {
+    setApiError('');
+    try {
+      const result = await api.getIntegrationOptions();
+      setIntegrationOptions(result);
       return result;
     } catch (error) {
       setApiError(error.message);
@@ -471,10 +528,14 @@ function App() {
             subscription={subscription}
             readiness={readiness}
             canManagePlans={session?.platformAdmin}
+            integrationSettings={integrationSettings}
+            integrationOptions={integrationOptions}
             setPlan={setPlan}
             checkout={checkout}
             saveBillingPlan={saveBillingPlan}
             removeBillingPlan={removeBillingPlan}
+            saveIntegrationSettings={saveIntegrationSettings}
+            refreshIntegrationOptions={refreshIntegrationOptions}
           />
         )}
       </main>
@@ -933,10 +994,14 @@ function Blueprint({
   subscription,
   readiness,
   canManagePlans,
+  integrationSettings,
+  integrationOptions,
   setPlan,
   checkout,
   saveBillingPlan,
   removeBillingPlan,
+  saveIntegrationSettings,
+  refreshIntegrationOptions,
 }) {
   const blankPlanForm = {
     id: '',
@@ -950,6 +1015,14 @@ function Blueprint({
   const [planForm, setPlanForm] = useState(blankPlanForm);
   const [savingPlan, setSavingPlan] = useState(false);
   const [deletingPlanId, setDeletingPlanId] = useState('');
+  const [settingsForm, setSettingsForm] = useState({
+    anthropicModel: '',
+    elevenLabsModel: 'eleven_multilingual_v2',
+    elevenLabsVoiceId: '',
+  });
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [loadingOptions, setLoadingOptions] = useState(false);
   const visiblePlans = plans.length
     ? plans
     : [
@@ -968,9 +1041,38 @@ function Blueprint({
   }));
   const selectedPlan = visiblePlans.find((item) => item.id === plan);
   const editingPlan = plans.find((item) => item.id === planForm.originalId);
+  const claudeModelOptions = mergeSelectOptions(integrationOptions.claudeModels, settingsForm.anthropicModel);
+  const elevenModelOptions = mergeSelectOptions(integrationOptions.elevenLabsModels, settingsForm.elevenLabsModel);
+  const elevenVoiceOptions = mergeSelectOptions(integrationOptions.elevenLabsVoices, settingsForm.elevenLabsVoiceId);
+
+  useEffect(() => {
+    if (!integrationSettings || settingsDirty) return;
+    setSettingsForm({
+      anthropicModel: integrationSettings.anthropicModel || '',
+      elevenLabsModel: integrationSettings.elevenLabsModel || 'eleven_multilingual_v2',
+      elevenLabsVoiceId: integrationSettings.elevenLabsVoiceId || '',
+    });
+  }, [integrationSettings, settingsDirty]);
+
+  useEffect(() => {
+    if (!canManagePlans) return;
+    if (
+      integrationOptions.claudeModels.length ||
+      integrationOptions.elevenLabsModels.length ||
+      integrationOptions.elevenLabsVoices.length
+    ) {
+      return;
+    }
+    loadIntegrationOptions(true);
+  }, [canManagePlans]);
 
   function updatePlanForm(key, value) {
     setPlanForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateSettingsForm(key, value) {
+    setSettingsDirty(true);
+    setSettingsForm((current) => ({ ...current, [key]: value }));
   }
 
   function editPlan(item) {
@@ -1008,6 +1110,28 @@ function Blueprint({
       if (planForm.originalId === item.id) resetPlanForm();
     } finally {
       setDeletingPlanId('');
+    }
+  }
+
+  async function loadIntegrationOptions(silent = false) {
+    setLoadingOptions(true);
+    try {
+      await refreshIntegrationOptions();
+    } catch (error) {
+      if (!silent) throw error;
+    } finally {
+      setLoadingOptions(false);
+    }
+  }
+
+  async function submitIntegrationSettings(event) {
+    event.preventDefault();
+    setSavingSettings(true);
+    try {
+      await saveIntegrationSettings(settingsForm);
+      setSettingsDirty(false);
+    } finally {
+      setSavingSettings(false);
     }
   }
 
@@ -1142,6 +1266,79 @@ function Blueprint({
         </section>
       )}
 
+      {canManagePlans && (
+        <section className="api-panel billing-admin">
+          <div className="section-title-row">
+            <div>
+              <p className="eyebrow">Admin AI Settings</p>
+              <h2>Global generation defaults</h2>
+            </div>
+            <button className="secondary-action" type="button" onClick={() => loadIntegrationOptions()} disabled={loadingOptions}>
+              {loadingOptions ? <Loader2 className="spin" size={17} /> : <RefreshCcw size={17} />}
+              Refresh lists
+            </button>
+          </div>
+
+          <form className="plan-form integration-form" onSubmit={submitIntegrationSettings}>
+            <div className="form-grid">
+              <label>
+                <span>Claude model</span>
+                <select value={settingsForm.anthropicModel} onChange={(event) => updateSettingsForm('anthropicModel', event.target.value)} required>
+                  <option value="">Choose Claude model</option>
+                  {claudeModelOptions.map((item) => (
+                    <option value={item.id} key={item.id}>{item.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Manual Claude model</span>
+                <input value={settingsForm.anthropicModel} onChange={(event) => updateSettingsForm('anthropicModel', event.target.value)} placeholder="Select or paste model ID" required />
+              </label>
+              <label>
+                <span>ElevenLabs TTS model</span>
+                <select value={settingsForm.elevenLabsModel} onChange={(event) => updateSettingsForm('elevenLabsModel', event.target.value)} required>
+                  <option value="">Choose ElevenLabs model</option>
+                  {elevenModelOptions.map((item) => (
+                    <option value={item.id} key={item.id}>{item.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>ElevenLabs voice</span>
+                <select value={settingsForm.elevenLabsVoiceId} onChange={(event) => updateSettingsForm('elevenLabsVoiceId', event.target.value)}>
+                  <option value="">Choose voice from API</option>
+                  {elevenVoiceOptions.map((item) => (
+                    <option value={item.id} key={item.id}>{item.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Manual voice ID</span>
+                <input value={settingsForm.elevenLabsVoiceId} onChange={(event) => updateSettingsForm('elevenLabsVoiceId', event.target.value)} placeholder="JBFqnCBsd6RMkjVDRZzb" required />
+              </label>
+            </div>
+
+            {integrationOptions.errors?.length > 0 && (
+              <div className="settings-warning">
+                {integrationOptions.errors.map((item) => (
+                  <span key={item.source}>{item.source}: provider list unavailable</span>
+                ))}
+              </div>
+            )}
+
+            <div className="plan-form-actions">
+              <button className="primary-action" type="submit" disabled={savingSettings}>
+                {savingSettings ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
+                Save global defaults
+              </button>
+              <span className="settings-note">
+                Applies to new AI and voice jobs immediately.
+              </span>
+            </div>
+          </form>
+        </section>
+      )}
+
       <section className="api-panel">
         <div className="section-title-row">
           <div>
@@ -1173,6 +1370,24 @@ function Blueprint({
 
 function StatusPill({ label }) {
   return <span className="status-pill">{label}</span>;
+}
+
+function mergeSelectOptions(options = [], currentValue = '') {
+  const seen = new Set();
+  const normalized = options
+    .filter((item) => item?.id)
+    .map((item) => ({ id: item.id, name: item.name || item.id }))
+    .filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+
+  if (currentValue && !seen.has(currentValue)) {
+    normalized.unshift({ id: currentValue, name: currentValue });
+  }
+
+  return normalized;
 }
 
 function RiskItem({ icon: Icon, label, value }) {

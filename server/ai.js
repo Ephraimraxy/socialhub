@@ -1,4 +1,5 @@
 import { appConfig, requireConfigured } from './config.js';
+import { getIntegrationSettings } from './store.js';
 
 function extractJson(text) {
   const trimmed = text.trim();
@@ -9,13 +10,14 @@ function extractJson(text) {
 }
 
 export async function generateCampaignDraft(input, brandProfile) {
+  const settings = getIntegrationSettings();
   if (!appConfig.anthropicApiKey) {
     requireConfigured('Claude campaign generation', [
       { name: 'ANTHROPIC_API_KEY', value: appConfig.anthropicApiKey },
     ]);
   }
   requireConfigured('Claude campaign generation', [
-    { name: 'ANTHROPIC_MODEL', value: appConfig.anthropicModel },
+    { name: 'Claude model in Admin AI Settings', value: settings.anthropicModel },
   ]);
 
   const prompt = [
@@ -38,7 +40,7 @@ export async function generateCampaignDraft(input, brandProfile) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: appConfig.anthropicModel,
+      model: settings.anthropicModel,
       max_tokens: 1600,
       messages: [{ role: 'user', content: prompt }],
     }),

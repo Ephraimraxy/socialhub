@@ -1000,7 +1000,8 @@ button {
   font-weight: 760;
 }
 
-.plan-form input {
+.plan-form input,
+.plan-form select {
   width: 100%;
   min-height: 44px;
   padding: 0 12px;
@@ -1011,12 +1012,14 @@ button {
   outline: 0;
 }
 
-.plan-form input:disabled {
+.plan-form input:disabled,
+.plan-form select:disabled {
   background: #eef3f0;
   color: #596760;
 }
 
-.plan-form input:focus {
+.plan-form input:focus,
+.plan-form select:focus {
   border-color: #159674;
   box-shadow: 0 0 0 3px rgba(21, 150, 116, 0.15);
 }
@@ -1059,6 +1062,32 @@ button {
 
 .danger-button {
   color: #ba3a27;
+}
+
+.integration-form {
+  margin-top: 18px;
+}
+
+.settings-warning {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-warning span,
+.settings-note {
+  color: #596760;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.settings-warning span {
+  padding: 6px 8px;
+  border: 1px solid #f0d7c2;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #a2481e;
+  font-weight: 720;
 }
 
 .metric-line {

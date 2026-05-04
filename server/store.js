@@ -16,6 +16,12 @@ const initialData = {
   publishJobs: [],
   billingEvents: [],
   oauthStates: [],
+  integrationSettings: {
+    anthropicModel: '',
+    elevenLabsModel: 'eleven_multilingual_v2',
+    elevenLabsVoiceId: '',
+    updatedAt: '2026-05-04T00:00:00.000Z',
+  },
   subscriptionPlans: [
     {
       id: 'starter',
@@ -89,6 +95,13 @@ export function createId(prefix) {
 
 export function nowIso() {
   return new Date().toISOString();
+}
+
+export function getIntegrationSettings(data = readStore()) {
+  return {
+    ...initialData.integrationSettings,
+    ...(data.integrationSettings || {}),
+  };
 }
 
 export function isPlatformAdmin(user) {

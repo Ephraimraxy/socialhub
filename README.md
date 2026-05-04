@@ -37,6 +37,7 @@ This app is prepared for GitHub-to-Railway CI/CD:
 - Build blueprint and business model view
 
 Platform admin access is controlled only by the `PLATFORM_ADMIN_EMAIL` Railway variable. The first registered user is not automatically promoted.
+Claude model, ElevenLabs model, ElevenLabs voice, and Paystack plans are controlled in the platform admin Launch page so changes apply to new jobs without redeploying.
 
 ## What comes next
 

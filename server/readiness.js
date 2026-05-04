@@ -1,5 +1,5 @@
 import { appConfig } from './config.js';
-import { readStore } from './store.js';
+import { getIntegrationSettings, readStore } from './store.js';
 
 function check(id, label, ready, detail, severity = 'required') {
   return { id, label, ready: Boolean(ready), detail, severity };
@@ -7,6 +7,7 @@ function check(id, label, ready, detail, severity = 'required') {
 
 export function getReadiness() {
   const plans = readStore().subscriptionPlans.filter((plan) => plan.active !== false);
+  const settings = getIntegrationSettings();
   const planCodesReady = plans.length > 0 && plans.every((plan) => Boolean(plan.paystackPlanCode));
   const checks = [
     check('auth_secret', 'Authentication secret', appConfig.authSecret.length >= 32, 'Set AUTH_SECRET to a long random value.'),
@@ -14,8 +15,8 @@ export function getReadiness() {
     check('paystack_secret', 'Paystack secret key', appConfig.paystackSecretKey, 'Set PAYSTACK_SECRET_KEY.'),
     check('paystack_public', 'Paystack public key', appConfig.paystackPublicKey, 'Set PAYSTACK_PUBLIC_KEY.'),
     check('paystack_plans', 'Paystack subscription plans', planCodesReady, 'Add active Paystack plan codes in Admin Billing Settings.'),
-    check('claude', 'Claude API', appConfig.anthropicApiKey && appConfig.anthropicModel, 'Set ANTHROPIC_API_KEY and ANTHROPIC_MODEL.'),
-    check('elevenlabs', 'ElevenLabs API', appConfig.elevenLabsApiKey && appConfig.elevenLabsVoiceId && appConfig.elevenLabsModel, 'Set ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, and ELEVENLABS_MODEL.'),
+    check('claude', 'Claude API', appConfig.anthropicApiKey && settings.anthropicModel, 'Set ANTHROPIC_API_KEY in Railway and choose a Claude model in Admin AI Settings.'),
+    check('elevenlabs', 'ElevenLabs API', appConfig.elevenLabsApiKey && settings.elevenLabsVoiceId && settings.elevenLabsModel, 'Set ELEVENLABS_API_KEY in Railway, then choose an ElevenLabs voice and model in Admin AI Settings.'),
     check('renderer', 'Video renderer', appConfig.renderEndpoint, 'Set VIDEO_RENDER_ENDPOINT to your production render worker.'),
     check('r2_storage', 'Cloudflare R2 storage', appConfig.r2AccessKeyId && appConfig.r2AccountId && appConfig.r2BucketName && appConfig.r2PublicUrl && appConfig.r2SecretAccessKey, 'Set R2_ACCESS_KEY_ID, R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_PUBLIC_URL, and R2_SECRET_ACCESS_KEY.'),
     check('oauth_vault', 'OAuth token encryption', appConfig.oauthEncryptionKey.length >= 32, 'Set OAUTH_ENCRYPTION_KEY to a long random value.'),

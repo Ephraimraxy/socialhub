@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { appConfig, requireConfigured } from './config.js';
 import { isR2Configured, putR2Object } from './r2.js';
-import { createId, mutateStore, nowIso } from './store.js';
+import { createId, getIntegrationSettings, mutateStore, nowIso } from './store.js';
 
 function assetPath(assetId, extension) {
   const folder = resolve(join(appConfig.dataDir, 'assets'));
@@ -25,6 +25,7 @@ async function persistAsset({ assetId, extension, contentType, body, keyPrefix }
 
 export async function createVoiceAsset({ tenantId, campaignId, text }) {
   const assetId = createId('asset');
+  const settings = getIntegrationSettings();
 
   if (!appConfig.elevenLabsApiKey) {
     requireConfigured('ElevenLabs voice generation', [
@@ -32,12 +33,12 @@ export async function createVoiceAsset({ tenantId, campaignId, text }) {
     ]);
   }
   requireConfigured('ElevenLabs voice generation', [
-    { name: 'ELEVENLABS_VOICE_ID', value: appConfig.elevenLabsVoiceId },
-    { name: 'ELEVENLABS_MODEL', value: appConfig.elevenLabsModel },
+    { name: 'ElevenLabs voice in Admin AI Settings', value: settings.elevenLabsVoiceId },
+    { name: 'ElevenLabs model in Admin AI Settings', value: settings.elevenLabsModel },
   ]);
 
   const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${appConfig.elevenLabsVoiceId}?output_format=mp3_44100_128`,
+    `https://api.elevenlabs.io/v1/text-to-speech/${settings.elevenLabsVoiceId}?output_format=mp3_44100_128`,
     {
       method: 'POST',
       headers: {
@@ -46,7 +47,7 @@ export async function createVoiceAsset({ tenantId, campaignId, text }) {
       },
       body: JSON.stringify({
         text,
-        model_id: appConfig.elevenLabsModel,
+        model_id: settings.elevenLabsModel,
       }),
     },
   );

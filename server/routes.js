@@ -7,8 +7,10 @@ import { buildAuthorizationUrl, encryptTokenPayload, exchangeOAuthCode } from '.
 import { getReadiness } from './readiness.js';
 import { createRenderAsset, createVoiceAsset } from './voice.js';
 import { getPlan, initializeCheckout, verifyPaystackSignature } from './paystack.js';
+import { listIntegrationOptions } from './integration-options.js';
 import {
   createId,
+  getIntegrationSettings,
   getTenantBundle,
   isPlatformAdmin,
   mutateStore,
@@ -63,6 +65,38 @@ function decoratePlan(plan) {
   };
 }
 
+function publicIntegrationSettings(data = readStore()) {
+  return getIntegrationSettings(data);
+}
+
+function normalizeIntegrationSettings(body, existing = {}) {
+  const anthropicModel = String(body.anthropicModel ?? existing.anthropicModel ?? '').trim();
+  const elevenLabsModel = String(body.elevenLabsModel ?? existing.elevenLabsModel ?? '').trim();
+  const elevenLabsVoiceId = String(body.elevenLabsVoiceId ?? existing.elevenLabsVoiceId ?? '').trim();
+
+  if (!anthropicModel) {
+    const error = new Error('Claude model is required');
+    error.status = 400;
+    throw error;
+  }
+  if (!elevenLabsModel) {
+    const error = new Error('ElevenLabs model is required');
+    error.status = 400;
+    throw error;
+  }
+  if (!elevenLabsVoiceId) {
+    const error = new Error('ElevenLabs voice ID is required');
+    error.status = 400;
+    throw error;
+  }
+
+  return {
+    anthropicModel,
+    elevenLabsModel,
+    elevenLabsVoiceId,
+  };
+}
+
 function normalizePlanPayload(body, existing = null) {
   const name = String(body.name || existing?.name || '').trim();
   const id = slugifyPlanId(body.id || existing?.id || name);
@@ -113,6 +147,20 @@ function billingPlanPayload() {
   };
 }
 
+function runtimePayload(user) {
+  const data = readStore();
+  const plans = data.subscriptionPlans.filter((plan) => plan.active !== false);
+  const payload = {
+    user: publicUser(data.users.find((item) => item.id === user.id) || user, data),
+    readiness: getReadiness(),
+    plans: plans.map(decoratePlan),
+  };
+  if (isPlatformAdmin(payload.user)) {
+    payload.integrationSettings = publicIntegrationSettings(data);
+  }
+  return payload;
+}
+
 function bootstrapPayload(user) {
   const data = readStore();
   const sessionUser = publicUser(data.users.find((item) => item.id === user.id) || user, data);
@@ -138,6 +186,7 @@ function bootstrapPayload(user) {
     publishJobs: bundle.publishJobs.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     readiness: getReadiness(),
     plans: plans.map(decoratePlan),
+    integrationSettings: isPlatformAdmin(sessionUser) ? publicIntegrationSettings(data) : null,
   };
 }
 
@@ -263,6 +312,38 @@ async function updateBrandProfile(request, response) {
 function listBillingPlans(request, response) {
   requirePlatformAdmin(request);
   sendJson(response, 200, billingPlanPayload());
+}
+
+function listAdminIntegrationSettings(request, response) {
+  requirePlatformAdmin(request);
+  sendJson(response, 200, {
+    integrationSettings: publicIntegrationSettings(),
+    readiness: getReadiness(),
+  });
+}
+
+async function updateAdminIntegrationSettings(request, response) {
+  requirePlatformAdmin(request);
+  const body = await readJson(request);
+
+  mutateStore((data) => {
+    const next = normalizeIntegrationSettings(body, getIntegrationSettings(data));
+    data.integrationSettings = {
+      ...getIntegrationSettings(data),
+      ...next,
+      updatedAt: nowIso(),
+    };
+  });
+
+  sendJson(response, 200, {
+    integrationSettings: publicIntegrationSettings(),
+    readiness: getReadiness(),
+  });
+}
+
+async function listAdminIntegrationOptions(request, response) {
+  requirePlatformAdmin(request);
+  sendJson(response, 200, await listIntegrationOptions());
 }
 
 async function createBillingPlan(request, response) {
@@ -718,12 +799,29 @@ export async function handleApi(request, response) {
       sendJson(response, 200, { readiness: getReadiness() });
       return true;
     }
+    if (request.method === 'GET' && pathname === '/api/runtime') {
+      const user = requireUser(request);
+      sendJson(response, 200, runtimePayload(user));
+      return true;
+    }
     if (request.method === 'GET' && pathname === '/api/admin/billing/plans') {
       listBillingPlans(request, response);
       return true;
     }
     if (request.method === 'POST' && pathname === '/api/admin/billing/plans') {
       await createBillingPlan(request, response);
+      return true;
+    }
+    if (request.method === 'GET' && pathname === '/api/admin/integrations/settings') {
+      listAdminIntegrationSettings(request, response);
+      return true;
+    }
+    if (request.method === 'PUT' && pathname === '/api/admin/integrations/settings') {
+      await updateAdminIntegrationSettings(request, response);
+      return true;
+    }
+    if (request.method === 'GET' && pathname === '/api/admin/integrations/options') {
+      await listAdminIntegrationOptions(request, response);
       return true;
     }
     if (request.method === 'PUT' && pathname === '/api/brand-profile') {

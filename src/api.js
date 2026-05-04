@@ -38,6 +38,7 @@ export async function apiRequest(path, options = {}) {
 
 export const api = {
   me: () => apiRequest('/api/me'),
+  runtime: () => apiRequest('/api/runtime'),
   readiness: () => apiRequest('/api/system/readiness'),
   register: (body) => apiRequest('/api/auth/register', { method: 'POST', body }),
   login: (body) => apiRequest('/api/auth/login', { method: 'POST', body }),
@@ -51,6 +52,10 @@ export const api = {
   updateBillingPlan: (planId, body) =>
     apiRequest(`/api/admin/billing/plans/${planId}`, { method: 'PUT', body }),
   deleteBillingPlan: (planId) => apiRequest(`/api/admin/billing/plans/${planId}`, { method: 'DELETE' }),
+  getIntegrationSettings: () => apiRequest('/api/admin/integrations/settings'),
+  updateIntegrationSettings: (body) =>
+    apiRequest('/api/admin/integrations/settings', { method: 'PUT', body }),
+  getIntegrationOptions: () => apiRequest('/api/admin/integrations/options'),
   generateCampaign: (body) => apiRequest('/api/campaigns/generate', { method: 'POST', body }),
   createVoice: (campaignId) => apiRequest(`/api/campaigns/${campaignId}/voice`, { method: 'POST' }),
   createRender: (campaignId) => apiRequest(`/api/campaigns/${campaignId}/render`, { method: 'POST' }),
