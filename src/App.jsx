@@ -615,7 +615,23 @@ function NavButton({ icon: Icon, id, label, activeView, setActiveView }) {
   );
 }
 
+const LANDING_FEATURES = [
+  { icon: Wand2,       title: 'AI Script Generation',  desc: 'Claude writes hooks, scripts, captions and hashtags tuned to your brand voice.' },
+  { icon: Mic2,        title: 'Voiceover in Seconds',  desc: 'ElevenLabs turns your script into a natural-sounding voiceover instantly.' },
+  { icon: Film,        title: 'Auto Video Renders',    desc: 'Your content is assembled into polished vertical video ready to publish.' },
+  { icon: UploadCloud, title: 'Direct Publishing',     desc: 'One click sends your video to YouTube, Instagram, Facebook and TikTok.' },
+  { icon: Users,       title: 'Multi-Client Workspace',desc: 'Manage unlimited brands from a single dashboard with role-based access.' },
+  { icon: BadgeDollarSign, title: 'Built-in Billing',  desc: 'Paystack-powered subscriptions, plan limits and invoicing out of the box.' },
+];
+
+const LANDING_STATS = [
+  { value: '10×', label: 'Faster content creation' },
+  { value: '4',   label: 'Platforms in one click' },
+  { value: '100%', label: 'AI-generated scripts' },
+];
+
 function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
+  const [view, setView] = useState('landing');
   const [mode, setMode] = useState('register');
   const [form, setForm] = useState({ name: '', company: '', email: '', password: '' });
   const [busy, setBusy] = useState(false);
@@ -645,86 +661,226 @@ function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
     }
   }
 
-  return (
-    <main className="auth-screen auth-screen-purple">
-      <div className="auth-glow" />
-      <section className="auth-panel auth-panel-purple">
-        <div className="auth-logo-row">
-          <div className="auth-logo-mark">
-            <Sparkles size={22} />
-          </div>
-          <div>
-            <strong>SocialHub</strong>
-            <span>AI Content Platform</span>
-          </div>
-        </div>
+  function openAuth(m) {
+    setMode(m);
+    setView('auth');
+  }
 
-        <div className="auth-heading">
-          <h1>{isRegister ? 'Create your workspace' : 'Welcome back'}</h1>
-          <p>{isRegister ? 'Start publishing smarter in minutes.' : 'Sign in to your workspace.'}</p>
-        </div>
+  if (view === 'auth') {
+    return (
+      <main className="auth-screen auth-screen-purple">
+        <div className="auth-glow" />
+        <section className="auth-panel auth-panel-purple">
+          <button className="auth-back-btn" type="button" onClick={() => setView('landing')}>
+            ← Back
+          </button>
 
-        {error && (
-          <div className="alert-bar auth-alert" role="alert">
-            <CircleAlert size={18} />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {googleAvailable && (
-          <>
-            <button className="google-auth-btn" type="button" onClick={handleGoogle} disabled={googleBusy}>
-              {googleBusy ? (
-                <Loader2 className="spin" size={18} />
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-                  <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"/>
-                  <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"/>
-                  <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z"/>
-                  <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z"/>
-                </svg>
-              )}
-              {isRegister ? 'Continue with Google' : 'Sign in with Google'}
-            </button>
-            <div className="auth-divider">
-              <span>or continue with email</span>
+          <div className="auth-logo-row">
+            <div className="auth-logo-mark"><Sparkles size={22} /></div>
+            <div>
+              <strong>SocialHub</strong>
+              <span>AI Content Platform</span>
             </div>
-          </>
-        )}
+          </div>
 
-        <form className="auth-form" onSubmit={submit}>
-          {isRegister && (
+          <div className="auth-heading">
+            <h1>{isRegister ? 'Create your workspace' : 'Welcome back'}</h1>
+            <p>{isRegister ? 'Start publishing smarter in minutes.' : 'Sign in to continue.'}</p>
+          </div>
+
+          {error && (
+            <div className="alert-bar auth-alert" role="alert">
+              <CircleAlert size={18} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {googleAvailable && (
             <>
-              <label>
-                <span>Full name</span>
-                <input value={form.name} onChange={(e) => updateField('name', e.target.value)} placeholder="Jane Smith" />
-              </label>
-              <label>
-                <span>Company / Brand</span>
-                <input value={form.company} onChange={(e) => updateField('company', e.target.value)} placeholder="Acme Media" />
-              </label>
+              <button className="google-auth-btn" type="button" onClick={handleGoogle} disabled={googleBusy}>
+                {googleBusy ? <Loader2 className="spin" size={18} /> : (
+                  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"/>
+                    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"/>
+                    <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z"/>
+                    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z"/>
+                  </svg>
+                )}
+                {isRegister ? 'Continue with Google' : 'Sign in with Google'}
+              </button>
+              <div className="auth-divider"><span>or continue with email</span></div>
             </>
           )}
-          <label>
-            <span>Email address</span>
-            <input type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} placeholder="jane@company.com" required />
-          </label>
-          <label>
-            <span>Password</span>
-            <input type="password" value={form.password} onChange={(e) => updateField('password', e.target.value)} placeholder="Min. 6 characters" required minLength={6} />
-          </label>
 
-          <button className="purple-primary-btn" type="submit" disabled={busy}>
-            {busy ? <Loader2 className="spin" size={18} /> : isRegister ? <UserPlus size={18} /> : <KeyRound size={18} />}
-            {busy ? 'Working…' : isRegister ? 'Create workspace' : 'Sign in'}
+          <form className="auth-form" onSubmit={submit}>
+            {isRegister && (
+              <>
+                <label>
+                  <span>Full name</span>
+                  <input value={form.name} onChange={(e) => updateField('name', e.target.value)} placeholder="Jane Smith" />
+                </label>
+                <label>
+                  <span>Company / Brand</span>
+                  <input value={form.company} onChange={(e) => updateField('company', e.target.value)} placeholder="Acme Media" />
+                </label>
+              </>
+            )}
+            <label>
+              <span>Email address</span>
+              <input type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} placeholder="jane@company.com" required />
+            </label>
+            <label>
+              <span>Password</span>
+              <input type="password" value={form.password} onChange={(e) => updateField('password', e.target.value)} placeholder="Min. 6 characters" required minLength={6} />
+            </label>
+            <button className="purple-primary-btn" type="submit" disabled={busy}>
+              {busy ? <Loader2 className="spin" size={18} /> : isRegister ? <UserPlus size={18} /> : <KeyRound size={18} />}
+              {busy ? 'Working…' : isRegister ? 'Create workspace' : 'Sign in'}
+            </button>
+          </form>
+
+          <button className="auth-toggle-btn" type="button" onClick={() => setMode(isRegister ? 'login' : 'register')}>
+            {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Sign up free"}
           </button>
-        </form>
+        </section>
+      </main>
+    );
+  }
 
-        <button className="auth-toggle-btn" type="button" onClick={() => setMode(isRegister ? 'login' : 'register')}>
-          {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-        </button>
+  return (
+    <div className="landing-root">
+      <div className="landing-glow" />
+
+      <nav className="landing-nav">
+        <div className="landing-nav-brand">
+          <div className="landing-nav-mark"><Sparkles size={18} /></div>
+          <strong>SocialHub</strong>
+        </div>
+        <div className="landing-nav-actions">
+          <button className="landing-nav-link" type="button" onClick={() => openAuth('login')}>Sign in</button>
+          <button className="purple-primary-btn landing-nav-cta" type="button" onClick={() => openAuth('register')}>
+            Get started free
+          </button>
+        </div>
+      </nav>
+
+      <section className="landing-hero">
+        <div className="hero-badge">
+          <Sparkles size={13} />
+          <span>AI-Powered Social Media Platform</span>
+        </div>
+        <h1 className="hero-title">
+          Create. Voice. Publish.<br />
+          <span className="hero-title-accent">All in one workspace.</span>
+        </h1>
+        <p className="hero-subtitle">
+          SocialHub uses Claude AI to write your scripts, ElevenLabs for voiceovers, and publishes directly to YouTube, Instagram, Facebook and TikTok — in minutes, not days.
+        </p>
+        <div className="hero-actions">
+          <button className="purple-primary-btn large-purple-btn" type="button" onClick={() => openAuth('register')}>
+            <Rocket size={18} />
+            Start for free
+          </button>
+          <button className="hero-secondary-btn" type="button" onClick={() => openAuth('login')}>
+            <KeyRound size={16} />
+            Sign in
+          </button>
+        </div>
+
+        <div className="hero-stats">
+          {LANDING_STATS.map((s) => (
+            <div className="hero-stat" key={s.label}>
+              <strong>{s.value}</strong>
+              <span>{s.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="hero-dashboard-preview">
+          <div className="preview-bar">
+            <span className="preview-dot" style={{ background: '#f87171' }} />
+            <span className="preview-dot" style={{ background: '#fbbf24' }} />
+            <span className="preview-dot" style={{ background: '#34d399' }} />
+            <span className="preview-title">SocialHub — AI Factory</span>
+          </div>
+          <div className="preview-body">
+            <div className="preview-sidebar">
+              {['Command', 'Workflow', 'Connections', 'AI Factory', 'Launch'].map((item) => (
+                <div className={`preview-nav-item ${item === 'AI Factory' ? 'preview-nav-active' : ''}`} key={item}>
+                  <div className="preview-nav-dot" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+            <div className="preview-content">
+              <div className="preview-card preview-card-wide">
+                <div className="preview-label">AI Script</div>
+                <div className="preview-lines">
+                  <div className="preview-line" style={{ width: '85%' }} />
+                  <div className="preview-line" style={{ width: '72%' }} />
+                  <div className="preview-line" style={{ width: '60%' }} />
+                </div>
+              </div>
+              <div className="preview-card-row">
+                <div className="preview-card preview-card-sm">
+                  <div className="preview-label">Voiceover</div>
+                  <div className="preview-wave">
+                    {[3,5,8,6,4,7,5,9,6,4,7,5].map((h, i) => (
+                      <span key={i} style={{ height: `${h * 3}px` }} />
+                    ))}
+                  </div>
+                </div>
+                <div className="preview-card preview-card-sm">
+                  <div className="preview-label">Platforms</div>
+                  <div className="preview-platform-dots">
+                    {['#d92d20','#c13584','#1877f2','#111111'].map((c) => (
+                      <span key={c} className="preview-platform-dot" style={{ background: c }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
-    </main>
+
+      <section className="landing-features">
+        <div className="landing-section-head">
+          <p className="landing-eyebrow">Everything you need</p>
+          <h2>One platform. End-to-end automation.</h2>
+        </div>
+        <div className="features-grid">
+          {LANDING_FEATURES.map((f) => (
+            <div className="feature-card" key={f.title}>
+              <div className="feature-icon"><f.icon size={22} /></div>
+              <strong>{f.title}</strong>
+              <p>{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-cta-section">
+        <div className="landing-cta-card">
+          <h2>Ready to automate your content?</h2>
+          <p>Join creators and agencies who publish faster with AI.</p>
+          <div className="hero-actions">
+            <button className="purple-primary-btn large-purple-btn" type="button" onClick={() => openAuth('register')}>
+              <UserPlus size={18} />
+              Create free workspace
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <footer className="landing-footer">
+        <div className="landing-nav-brand">
+          <div className="landing-nav-mark"><Sparkles size={15} /></div>
+          <strong>SocialHub</strong>
+        </div>
+        <span>© {new Date().getFullYear()} SocialHub. AI-powered content automation.</span>
+      </footer>
+    </div>
   );
 }
 
