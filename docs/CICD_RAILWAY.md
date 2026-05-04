@@ -38,9 +38,6 @@ For the paid SaaS backend phase, add:
 ```text
 PAYSTACK_SECRET_KEY=
 PAYSTACK_PUBLIC_KEY=
-PAYSTACK_PLAN_STARTER=
-PAYSTACK_PLAN_GROWTH=
-PAYSTACK_PLAN_AGENCY=
 ANTHROPIC_API_KEY=
 ANTHROPIC_MODEL=
 ELEVENLABS_API_KEY=
@@ -65,6 +62,8 @@ R2_SECRET_ACCESS_KEY=
 ```
 
 SocialHub does not include live fallback success paths. If Paystack, Claude, ElevenLabs, rendering, or OAuth variables are missing, the affected route returns a configuration error instead of pretending to complete the action.
+
+Paystack plan codes are managed inside the app by the platform admin under Launch -> Admin Billing. Do not add `PAYSTACK_PLAN_STARTER`, `PAYSTACK_PLAN_GROWTH`, or `PAYSTACK_PLAN_AGENCY` to Railway.
 
 ## GitHub Repo Setup
 

@@ -16,6 +16,44 @@ const initialData = {
   publishJobs: [],
   billingEvents: [],
   oauthStates: [],
+  subscriptionPlans: [
+    {
+      id: 'starter',
+      name: 'Starter',
+      priceMonthly: 25000,
+      currency: 'NGN',
+      campaignLimit: 30,
+      platformLimit: 4,
+      paystackPlanCode: '',
+      active: true,
+      createdAt: '2026-05-04T00:00:00.000Z',
+      updatedAt: '2026-05-04T00:00:00.000Z',
+    },
+    {
+      id: 'growth',
+      name: 'Growth',
+      priceMonthly: 65000,
+      currency: 'NGN',
+      campaignLimit: 120,
+      platformLimit: 4,
+      paystackPlanCode: '',
+      active: true,
+      createdAt: '2026-05-04T00:00:00.000Z',
+      updatedAt: '2026-05-04T00:00:00.000Z',
+    },
+    {
+      id: 'agency',
+      name: 'Agency',
+      priceMonthly: 150000,
+      currency: 'NGN',
+      campaignLimit: 400,
+      platformLimit: 4,
+      paystackPlanCode: '',
+      active: true,
+      createdAt: '2026-05-04T00:00:00.000Z',
+      updatedAt: '2026-05-04T00:00:00.000Z',
+    },
+  ],
 };
 
 function ensureStore() {
@@ -53,7 +91,13 @@ export function nowIso() {
   return new Date().toISOString();
 }
 
-export function publicUser(user) {
+export function isPlatformAdmin(user, data = readStore()) {
+  if (!user) return false;
+  if (user.role === 'platform_admin') return true;
+  return data.users[0]?.id === user.id;
+}
+
+export function publicUser(user, data) {
   if (!user) return null;
   return {
     id: user.id,
@@ -61,6 +105,7 @@ export function publicUser(user) {
     name: user.name,
     email: user.email,
     role: user.role,
+    platformAdmin: isPlatformAdmin(user, data),
     createdAt: user.createdAt,
   };
 }

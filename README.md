@@ -27,6 +27,7 @@ This app is prepared for GitHub-to-Railway CI/CD:
 - User registration and login
 - Tenant/workspace bootstrap
 - Paystack checkout initialization
+- Platform admin billing plan management
 - Claude campaign generation
 - ElevenLabs voice asset generation
 - External video render endpoint hook
@@ -39,7 +40,7 @@ This app is prepared for GitHub-to-Railway CI/CD:
 
 - PostgreSQL persistence adapter
 - Encrypted OAuth token vault
-- Full Paystack subscription verification and plan management
+- Full Paystack subscription event reconciliation
 - Optional Stripe adapter later for Stripe Atlas or supported-country expansion
 - Video rendering worker
 - YouTube, Meta, and TikTok app review completion

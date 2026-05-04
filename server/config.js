@@ -28,36 +28,6 @@ export const appConfig = {
   enableDirectPublishing: process.env.ENABLE_DIRECT_PUBLISHING === 'true',
 };
 
-export const subscriptionPlans = {
-  starter: {
-    id: 'starter',
-    name: 'Starter',
-    priceMonthly: 25000,
-    currency: 'NGN',
-    campaignLimit: 30,
-    platformLimit: 4,
-    paystackPlanCode: process.env.PAYSTACK_PLAN_STARTER || '',
-  },
-  growth: {
-    id: 'growth',
-    name: 'Growth',
-    priceMonthly: 65000,
-    currency: 'NGN',
-    campaignLimit: 120,
-    platformLimit: 4,
-    paystackPlanCode: process.env.PAYSTACK_PLAN_GROWTH || '',
-  },
-  agency: {
-    id: 'agency',
-    name: 'Agency',
-    priceMonthly: 150000,
-    currency: 'NGN',
-    campaignLimit: 400,
-    platformLimit: 4,
-    paystackPlanCode: process.env.PAYSTACK_PLAN_AGENCY || '',
-  },
-};
-
 export const platformCatalog = [
   {
     id: 'youtube',

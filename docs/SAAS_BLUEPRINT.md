@@ -112,6 +112,7 @@ Publishing:
 - `users`: identity, email, role
 - `tenants`: client organization
 - `subscriptions`: Paystack plan, status, and authorization reference
+- `subscription_plans`: app-managed plan names, prices, limits, and Paystack plan codes
 - `brand_profiles`: tone, audience, offer, forbidden words
 - `platform_accounts`: provider, account id, token reference, scopes
 - `campaigns`: topic, generated copy, status, approval state

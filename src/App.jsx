@@ -18,15 +18,19 @@ import {
   Loader2,
   LockKeyhole,
   Mic2,
+  Pencil,
   Play,
   PlugZap,
+  Plus,
   RefreshCcw,
   Rocket,
+  Save,
   Send,
   ShieldCheck,
   Sparkles,
   SquareStack,
   TimerReset,
+  Trash2,
   UploadCloud,
   Users,
   UserPlus,
@@ -163,7 +167,7 @@ function App() {
   const connectedCount = platforms.filter((platform) => platform.connected).length;
   const directPlatforms = platforms.filter((platform) => platform.automation === 'Direct').length;
   const activePlan = plans.find((item) => item.id === plan);
-  const projectedCost = activePlan?.displayPrice || (plan === 'starter' ? '₦25K' : plan === 'growth' ? '₦65K' : '₦150K');
+  const projectedCost = activePlan?.displayPrice || (plan === 'starter' ? 'NGN 25K' : plan === 'growth' ? 'NGN 65K' : 'NGN 150K');
 
   const selectedPlatformNames = useMemo(
     () => platformSeed.filter((platform) => selectedPlatforms.includes(platform.id)).map((platform) => platform.name),
@@ -315,6 +319,43 @@ function App() {
     }
   }
 
+  async function saveBillingPlan(payload) {
+    setApiError('');
+    const request = payload.originalId
+      ? api.updateBillingPlan(payload.originalId, payload)
+      : api.createBillingPlan(payload);
+
+    try {
+      const result = await request;
+      setPlans(result.plans || []);
+      setReadiness(result.readiness || null);
+      if (payload.id) {
+        setPlan(payload.id);
+      }
+      return result;
+    } catch (error) {
+      setApiError(error.message);
+      throw error;
+    }
+  }
+
+  async function removeBillingPlan(planId) {
+    setApiError('');
+    try {
+      const result = await api.deleteBillingPlan(planId);
+      const nextPlans = result.plans || [];
+      setPlans(nextPlans);
+      setReadiness(result.readiness || null);
+      if (!nextPlans.some((item) => item.id === plan)) {
+        setPlan(nextPlans[0]?.id || '');
+      }
+      return result;
+    } catch (error) {
+      setApiError(error.message);
+      throw error;
+    }
+  }
+
   function clearDraft() {
     setForm(defaultForm);
     setCampaign(emptyCampaign);
@@ -429,8 +470,11 @@ function App() {
             plans={plans}
             subscription={subscription}
             readiness={readiness}
+            canManagePlans={session?.platformAdmin}
             setPlan={setPlan}
             checkout={checkout}
+            saveBillingPlan={saveBillingPlan}
+            removeBillingPlan={removeBillingPlan}
           />
         )}
       </main>
@@ -883,13 +927,35 @@ function Factory({
   );
 }
 
-function Blueprint({ plan, plans, subscription, readiness, setPlan, checkout }) {
+function Blueprint({
+  plan,
+  plans,
+  subscription,
+  readiness,
+  canManagePlans,
+  setPlan,
+  checkout,
+  saveBillingPlan,
+  removeBillingPlan,
+}) {
+  const blankPlanForm = {
+    id: '',
+    name: '',
+    priceMonthly: '',
+    currency: 'NGN',
+    campaignLimit: '',
+    platformLimit: '4',
+    paystackPlanCode: '',
+  };
+  const [planForm, setPlanForm] = useState(blankPlanForm);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [deletingPlanId, setDeletingPlanId] = useState('');
   const visiblePlans = plans.length
     ? plans
     : [
-        { id: 'starter', displayPrice: '₦25K' },
-        { id: 'growth', displayPrice: '₦65K' },
-        { id: 'agency', displayPrice: '₦150K' },
+        { id: 'starter', name: 'Starter', displayPrice: 'NGN 25K' },
+        { id: 'growth', name: 'Growth', displayPrice: 'NGN 65K' },
+        { id: 'agency', name: 'Agency', displayPrice: 'NGN 150K' },
       ];
 
   const readinessPercent = readiness ? Math.round((readiness.completed / readiness.total) * 100) : 0;
@@ -900,6 +966,50 @@ function Blueprint({ plan, plans, subscription, readiness, setPlan, checkout }) 
     state: item.severity === 'launch' ? 'launch' : 'required',
     items: [item.detail],
   }));
+  const selectedPlan = visiblePlans.find((item) => item.id === plan);
+  const editingPlan = plans.find((item) => item.id === planForm.originalId);
+
+  function updatePlanForm(key, value) {
+    setPlanForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function editPlan(item) {
+    setPlanForm({
+      originalId: item.id,
+      id: item.id,
+      name: item.name || '',
+      priceMonthly: String(item.priceMonthly || ''),
+      currency: item.currency || 'NGN',
+      campaignLimit: String(item.campaignLimit || ''),
+      platformLimit: String(item.platformLimit || 4),
+      paystackPlanCode: item.paystackPlanCode || '',
+    });
+  }
+
+  function resetPlanForm() {
+    setPlanForm(blankPlanForm);
+  }
+
+  async function submitBillingPlan(event) {
+    event.preventDefault();
+    setSavingPlan(true);
+    try {
+      await saveBillingPlan(planForm);
+      resetPlanForm();
+    } finally {
+      setSavingPlan(false);
+    }
+  }
+
+  async function deletePlan(item) {
+    setDeletingPlanId(item.id);
+    try {
+      await removeBillingPlan(item.id);
+      if (planForm.originalId === item.id) resetPlanForm();
+    } finally {
+      setDeletingPlanId('');
+    }
+  }
 
   return (
     <section className="blueprint-screen">
@@ -943,16 +1053,94 @@ function Blueprint({ plan, plans, subscription, readiness, setPlan, checkout }) 
           </div>
           <button className="primary-action full-width" type="button" onClick={() => checkout(plan)}>
             <CreditCard size={18} />
-            Activate {visiblePlans.find((item) => item.id === plan)?.name || plan}
+            Activate {selectedPlan?.name || plan}
           </button>
           <div className="unit-economics">
             <Metric label="Current billing status" value={subscription?.status || 'trialing'} />
             <Metric label="Billing provider" value={subscription?.provider || 'paystack'} />
-            <Metric label="Selected plan" value={visiblePlans.find((item) => item.id === plan)?.name || plan} />
+            <Metric label="Selected plan" value={selectedPlan?.name || plan} />
             <Metric label="Launch state" value={readiness?.launchReady ? 'Ready' : 'Needs configuration'} />
           </div>
         </section>
       </div>
+
+      {canManagePlans && (
+        <section className="api-panel billing-admin">
+          <div className="section-title-row">
+            <div>
+              <p className="eyebrow">Admin Billing</p>
+              <h2>Paystack plans</h2>
+            </div>
+            <StatusPill label={plans.length > 0 && plans.every((item) => item.paystackPlanCode) ? 'Plan codes ready' : 'Add plan codes'} />
+          </div>
+
+          <div className="billing-admin-grid">
+            <form className="plan-form" onSubmit={submitBillingPlan}>
+              <div className="form-grid">
+                <label>
+                  <span>Plan name</span>
+                  <input value={planForm.name} onChange={(event) => updatePlanForm('name', event.target.value)} placeholder="Starter" required />
+                </label>
+                <label>
+                  <span>Plan slug</span>
+                  <input value={planForm.id} onChange={(event) => updatePlanForm('id', event.target.value)} placeholder="starter" disabled={Boolean(planForm.originalId)} required />
+                </label>
+                <label>
+                  <span>Monthly price</span>
+                  <input type="number" min="1" value={planForm.priceMonthly} onChange={(event) => updatePlanForm('priceMonthly', event.target.value)} placeholder="25000" required />
+                </label>
+                <label>
+                  <span>Currency</span>
+                  <input value={planForm.currency} onChange={(event) => updatePlanForm('currency', event.target.value)} placeholder="NGN" required />
+                </label>
+                <label>
+                  <span>Campaign limit</span>
+                  <input type="number" min="1" value={planForm.campaignLimit} onChange={(event) => updatePlanForm('campaignLimit', event.target.value)} placeholder="30" required />
+                </label>
+                <label>
+                  <span>Platform limit</span>
+                  <input type="number" min="1" value={planForm.platformLimit} onChange={(event) => updatePlanForm('platformLimit', event.target.value)} placeholder="4" required />
+                </label>
+              </div>
+              <label>
+                <span>Paystack plan code</span>
+                <input value={planForm.paystackPlanCode} onChange={(event) => updatePlanForm('paystackPlanCode', event.target.value)} placeholder="PLN_xxxxxxxxxxxxxx" />
+              </label>
+              <div className="plan-form-actions">
+                <button className="primary-action" type="submit" disabled={savingPlan}>
+                  {savingPlan ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
+                  {editingPlan ? 'Save plan' : 'Add plan'}
+                </button>
+                {planForm.originalId && (
+                  <button className="secondary-action" type="button" onClick={resetPlanForm}>
+                    <Plus size={17} />
+                    New plan
+                  </button>
+                )}
+              </div>
+            </form>
+
+            <div className="plan-list">
+              {plans.map((item) => (
+                <article className="plan-item" key={item.id}>
+                  <div>
+                    <strong>{item.name}</strong>
+                    <span>{item.displayPrice} - {item.campaignLimit} campaigns - {item.paystackPlanCode || 'No Paystack code'}</span>
+                  </div>
+                  <div className="plan-actions">
+                    <button className="icon-button" type="button" aria-label={`Edit ${item.name}`} onClick={() => editPlan(item)}>
+                      <Pencil size={16} />
+                    </button>
+                    <button className="icon-button danger-button" type="button" aria-label={`Delete ${item.name}`} onClick={() => deletePlan(item)} disabled={deletingPlanId === item.id || plans.length <= 1}>
+                      {deletingPlanId === item.id ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="api-panel">
         <div className="section-title-row">

@@ -1,9 +1,10 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { appConfig, requireConfigured, subscriptionPlans } from './config.js';
-import { createId } from './store.js';
+import { appConfig, requireConfigured } from './config.js';
+import { createId, readStore } from './store.js';
 
 export function getPlan(planId) {
-  const plan = subscriptionPlans[planId || 'starter'];
+  const plans = readStore().subscriptionPlans;
+  const plan = plans.find((item) => item.id === (planId || 'starter') && item.active !== false);
   if (!plan) {
     const error = new Error('Unknown subscription plan');
     error.status = 400;
@@ -23,6 +24,12 @@ export async function initializeCheckout({ user, tenant, planId }) {
     ]);
   }
 
+  if (!plan.paystackPlanCode) {
+    const error = new Error('This subscription plan is missing its Paystack plan code. Add the plan code in Admin Billing Settings before checkout.');
+    error.status = 503;
+    throw error;
+  }
+
   const payload = {
     email: user.email,
     amount,
@@ -36,9 +43,7 @@ export async function initializeCheckout({ user, tenant, planId }) {
     },
   };
 
-  if (plan.paystackPlanCode) {
-    payload.plan = plan.paystackPlanCode;
-  }
+  payload.plan = plan.paystackPlanCode;
 
   const response = await fetch('https://api.paystack.co/transaction/initialize', {
     method: 'POST',

@@ -46,6 +46,11 @@ export const api = {
     apiRequest(`/api/platforms/${platformId}/connect`, { method: 'POST', body }),
   startOAuth: (platformId) => apiRequest(`/api/oauth/${platformId}/start`, { method: 'POST' }),
   checkout: (planId) => apiRequest('/api/billing/checkout', { method: 'POST', body: { planId } }),
+  listBillingPlans: () => apiRequest('/api/admin/billing/plans'),
+  createBillingPlan: (body) => apiRequest('/api/admin/billing/plans', { method: 'POST', body }),
+  updateBillingPlan: (planId, body) =>
+    apiRequest(`/api/admin/billing/plans/${planId}`, { method: 'PUT', body }),
+  deleteBillingPlan: (planId) => apiRequest(`/api/admin/billing/plans/${planId}`, { method: 'DELETE' }),
   generateCampaign: (body) => apiRequest('/api/campaigns/generate', { method: 'POST', body }),
   createVoice: (campaignId) => apiRequest(`/api/campaigns/${campaignId}/voice`, { method: 'POST' }),
   createRender: (campaignId) => apiRequest(`/api/campaigns/${campaignId}/render`, { method: 'POST' }),

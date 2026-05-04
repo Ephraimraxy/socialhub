@@ -1,7 +1,7 @@
 import { createReadStream, existsSync } from 'node:fs';
 import { extname } from 'node:path';
 import { hashPassword, createToken, requireUser, verifyPassword, verifyToken, getBearerToken } from './auth.js';
-import { appConfig, formatMoney, platformCatalog, subscriptionPlans } from './config.js';
+import { appConfig, formatMoney, platformCatalog } from './config.js';
 import { generateCampaignDraft } from './ai.js';
 import { buildAuthorizationUrl, encryptTokenPayload, exchangeOAuthCode } from './oauth.js';
 import { getReadiness } from './readiness.js';
@@ -10,6 +10,7 @@ import { getPlan, initializeCheckout, verifyPaystackSignature } from './paystack
 import {
   createId,
   getTenantBundle,
+  isPlatformAdmin,
   mutateStore,
   nowIso,
   publicUser,
@@ -37,11 +38,89 @@ function requireFields(body, fields) {
   }
 }
 
+function requirePlatformAdmin(request) {
+  const user = requireUser(request);
+  const data = readStore();
+  if (!isPlatformAdmin(user, data)) {
+    const error = new Error('Platform admin access required');
+    error.status = 403;
+    throw error;
+  }
+  return user;
+}
+
+function slugifyPlanId(value = '') {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+}
+
+function decoratePlan(plan) {
+  return {
+    ...plan,
+    displayPrice: formatMoney(plan),
+  };
+}
+
+function normalizePlanPayload(body, existing = null) {
+  const name = String(body.name || existing?.name || '').trim();
+  const id = slugifyPlanId(body.id || existing?.id || name);
+  const priceMonthly = Number(body.priceMonthly ?? existing?.priceMonthly);
+  const campaignLimit = Number.parseInt(body.campaignLimit ?? existing?.campaignLimit ?? 0, 10);
+  const platformLimit = Number.parseInt(body.platformLimit ?? existing?.platformLimit ?? 4, 10);
+  const currency = String(body.currency || existing?.currency || 'NGN').trim().toUpperCase();
+
+  if (!id || !name) {
+    const error = new Error('Plan name and slug are required');
+    error.status = 400;
+    throw error;
+  }
+  if (!Number.isFinite(priceMonthly) || priceMonthly <= 0) {
+    const error = new Error('Plan monthly price must be greater than zero');
+    error.status = 400;
+    throw error;
+  }
+  if (!Number.isInteger(campaignLimit) || campaignLimit < 1) {
+    const error = new Error('Campaign limit must be a positive whole number');
+    error.status = 400;
+    throw error;
+  }
+  if (!Number.isInteger(platformLimit) || platformLimit < 1) {
+    const error = new Error('Platform limit must be a positive whole number');
+    error.status = 400;
+    throw error;
+  }
+
+  return {
+    id,
+    name,
+    priceMonthly: Math.round(priceMonthly),
+    currency,
+    campaignLimit,
+    platformLimit,
+    paystackPlanCode: String(body.paystackPlanCode ?? existing?.paystackPlanCode ?? '').trim(),
+    active: body.active ?? existing?.active ?? true,
+  };
+}
+
+function billingPlanPayload() {
+  const data = readStore();
+  return {
+    plans: data.subscriptionPlans.filter((plan) => plan.active !== false).map(decoratePlan),
+    allPlans: data.subscriptionPlans.map(decoratePlan),
+    readiness: getReadiness(),
+  };
+}
+
 function bootstrapPayload(user) {
   const data = readStore();
-  const bundle = getTenantBundle(data, user.tenantId);
+  const sessionUser = publicUser(data.users.find((item) => item.id === user.id) || user, data);
+  const bundle = getTenantBundle(data, sessionUser.tenantId);
+  const plans = data.subscriptionPlans.filter((plan) => plan.active !== false);
   return {
-    user,
+    user: sessionUser,
     tenant: bundle.tenant,
     subscription: bundle.subscription,
     brandProfile: bundle.brandProfile,
@@ -59,10 +138,7 @@ function bootstrapPayload(user) {
     campaigns: bundle.campaigns.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     publishJobs: bundle.publishJobs.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     readiness: getReadiness(),
-    plans: Object.values(subscriptionPlans).map((plan) => ({
-      ...plan,
-      displayPrice: formatMoney(plan),
-    })),
+    plans: plans.map(decoratePlan),
   };
 }
 
@@ -89,7 +165,7 @@ async function register(request, response) {
       name: body.name.trim(),
       email,
       passwordHash: hashPassword(body.password),
-      role: 'owner',
+      role: data.users.length === 0 ? 'platform_admin' : 'owner',
       createdAt: nowIso(),
     };
     const brandProfile = {
@@ -117,7 +193,7 @@ async function register(request, response) {
     data.brandProfiles.push(brandProfile);
     data.subscriptions.push(subscription);
 
-    return { user: publicUser(user), tenant };
+    return { user: publicUser(user, data), tenant };
   });
 
   sendJson(response, 201, {
@@ -139,7 +215,7 @@ async function login(request, response) {
     throw error;
   }
 
-  const safeUser = publicUser(user);
+  const safeUser = publicUser(user, data);
   sendJson(response, 200, {
     token: createToken(safeUser),
     ...bootstrapPayload(safeUser),
@@ -183,6 +259,81 @@ async function updateBrandProfile(request, response) {
   });
 
   sendJson(response, 200, { brandProfile: profile });
+}
+
+function listBillingPlans(request, response) {
+  requirePlatformAdmin(request);
+  sendJson(response, 200, billingPlanPayload());
+}
+
+async function createBillingPlan(request, response) {
+  requirePlatformAdmin(request);
+  const body = await readJson(request);
+  const plan = normalizePlanPayload(body);
+
+  mutateStore((data) => {
+    if (data.subscriptionPlans.some((item) => item.id === plan.id)) {
+      const error = new Error('A plan with this slug already exists');
+      error.status = 409;
+      throw error;
+    }
+
+    data.subscriptionPlans.push({
+      ...plan,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    });
+  });
+
+  sendJson(response, 201, billingPlanPayload());
+}
+
+async function updateBillingPlan(request, response, planId) {
+  requirePlatformAdmin(request);
+  const body = await readJson(request);
+
+  mutateStore((data) => {
+    const existing = data.subscriptionPlans.find((item) => item.id === planId);
+    if (!existing) {
+      const error = new Error('Billing plan not found');
+      error.status = 404;
+      throw error;
+    }
+
+    const next = normalizePlanPayload({ ...body, id: planId }, existing);
+    Object.assign(existing, next, { updatedAt: nowIso() });
+  });
+
+  sendJson(response, 200, billingPlanPayload());
+}
+
+async function deleteBillingPlan(request, response, planId) {
+  requirePlatformAdmin(request);
+
+  mutateStore((data) => {
+    const index = data.subscriptionPlans.findIndex((item) => item.id === planId);
+    if (index === -1) {
+      const error = new Error('Billing plan not found');
+      error.status = 404;
+      throw error;
+    }
+    if (data.subscriptionPlans.filter((item) => item.active !== false).length <= 1) {
+      const error = new Error('At least one active billing plan is required');
+      error.status = 409;
+      throw error;
+    }
+
+    data.subscriptionPlans.splice(index, 1);
+
+    for (const subscription of data.subscriptions) {
+      if (subscription.planId === planId) {
+        subscription.planId = data.subscriptionPlans.find((plan) => plan.active !== false)?.id || '';
+        subscription.updatedAt = nowIso();
+      }
+    }
+  });
+
+  sendJson(response, 200, billingPlanPayload());
 }
 
 async function connectPlatform(request, response, platformId) {
@@ -568,6 +719,14 @@ export async function handleApi(request, response) {
       sendJson(response, 200, { readiness: getReadiness() });
       return true;
     }
+    if (request.method === 'GET' && pathname === '/api/admin/billing/plans') {
+      listBillingPlans(request, response);
+      return true;
+    }
+    if (request.method === 'POST' && pathname === '/api/admin/billing/plans') {
+      await createBillingPlan(request, response);
+      return true;
+    }
     if (request.method === 'PUT' && pathname === '/api/brand-profile') {
       await updateBrandProfile(request, response);
       return true;
@@ -582,6 +741,16 @@ export async function handleApi(request, response) {
     }
     if (request.method === 'POST' && pathname === '/api/campaigns/generate') {
       await generateCampaign(request, response);
+      return true;
+    }
+
+    const billingPlanMatch = pathname.match(/^\/api\/admin\/billing\/plans\/([^/]+)$/);
+    if (billingPlanMatch && request.method === 'PUT') {
+      await updateBillingPlan(request, response, billingPlanMatch[1]);
+      return true;
+    }
+    if (billingPlanMatch && request.method === 'DELETE') {
+      await deleteBillingPlan(request, response, billingPlanMatch[1]);
       return true;
     }
 
