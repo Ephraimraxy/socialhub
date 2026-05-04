@@ -22,7 +22,7 @@ Create a new Railway project and choose:
 
 ## Required Railway Variables
 
-For this current frontend prototype, Railway only needs:
+For the production app shell, Railway needs:
 
 ```text
 NODE_ENV=production

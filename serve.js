@@ -15,7 +15,9 @@ const contentTypes = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.txt': 'text/plain; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.webp': 'image/webp',
+  '.xml': 'application/xml; charset=utf-8',
 };
 
 function resolveAsset(urlPath) {
@@ -69,5 +71,5 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, '0.0.0.0', () => {
-  console.log(`Social AI Studio listening on ${port}`);
+  console.log(`SocialHub listening on ${port}`);
 });

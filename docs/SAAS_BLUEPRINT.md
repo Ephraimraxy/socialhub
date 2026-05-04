@@ -1,4 +1,4 @@
-# Social AI Studio SaaS Blueprint
+# SocialHub SaaS Blueprint
 
 ## Product Goal
 
@@ -13,7 +13,7 @@ TikTok should support two paths:
 - Direct post for approved apps.
 - Inbox/manual approval fallback when direct post is unavailable.
 
-## MVP Workflow
+## Product Workflow
 
 1. Client signs up and pays with Paystack.
 2. Client creates a brand profile.
@@ -41,7 +41,7 @@ Frontend:
 Backend:
 
 - Node.js API
-- File-backed store for this first deployable MVP
+- File-backed store for the first deployable product version
 - PostgreSQL adapter for the production hardening phase
 - Redis queue for the production hardening phase
 - Object storage for video and audio assets

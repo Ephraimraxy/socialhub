@@ -1,7 +1,7 @@
 export const appConfig = {
   appName: 'SocialHub',
   baseUrl: process.env.APP_BASE_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:3000',
-  authSecret: process.env.AUTH_SECRET || 'dev-socialhub-auth-secret-change-me',
+  authSecret: process.env.AUTH_SECRET || '',
   dataDir: process.env.DATA_DIR || 'data',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
   anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929',

@@ -38,6 +38,7 @@ export async function apiRequest(path, options = {}) {
 
 export const api = {
   me: () => apiRequest('/api/me'),
+  readiness: () => apiRequest('/api/system/readiness'),
   register: (body) => apiRequest('/api/auth/register', { method: 'POST', body }),
   login: (body) => apiRequest('/api/auth/login', { method: 'POST', body }),
   updateBrandProfile: (body) => apiRequest('/api/brand-profile', { method: 'PUT', body }),

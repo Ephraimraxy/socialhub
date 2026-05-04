@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="SocialHub AI content operations">
+  <rect width="1200" height="630" fill="#f6f7f5"/>
+  <rect x="72" y="72" width="1056" height="486" rx="28" fill="#ffffff" stroke="#dce3df" stroke-width="2"/>
+  <rect x="118" y="125" width="96" height="96" rx="22" fill="#126b57"/>
+  <path d="M144 158c0-7 6-13 13-13h21c7 0 13 6 13 13v34c0 7-6 13-13 13h-21c-7 0-13-6-13-13v-34Z" fill="#f7faf8"/>
+  <path d="M156 164h23M156 176h23M156 188h15" stroke="#126b57" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="196" cy="146" r="14" fill="#f4c24f"/>
+  <path d="m191 146 4 4 8-9" fill="none" stroke="#202321" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="244" y="177" fill="#202321" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="800" letter-spacing="0">SocialHub</text>
+  <text x="122" y="316" fill="#202321" font-family="Inter, Arial, sans-serif" font-size="46" font-weight="800" letter-spacing="0">AI content operations for social teams</text>
+  <text x="124" y="378" fill="#596760" font-family="Inter, Arial, sans-serif" font-size="25" font-weight="500" letter-spacing="0">Generate, render, schedule, and manage campaigns across connected platforms.</text>
+  <rect x="124" y="444" width="205" height="56" rx="10" fill="#126b57"/>
+  <text x="157" y="481" fill="#ffffff" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="800" letter-spacing="0">Launch ready</text>
+  <rect x="350" y="444" width="254" height="56" rx="10" fill="#fff2cf"/>
+  <text x="383" y="481" fill="#6f4c00" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="800" letter-spacing="0">Production checks</text>
+</svg>

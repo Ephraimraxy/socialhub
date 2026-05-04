@@ -18,6 +18,11 @@ function fromBase64Url(input) {
 }
 
 function sign(value) {
+  if (!appConfig.authSecret) {
+    const error = new Error('Authentication is not configured. Set AUTH_SECRET in Railway variables.');
+    error.status = 503;
+    throw error;
+  }
   return createHmac('sha256', appConfig.authSecret).update(value).digest('base64url');
 }
 
@@ -49,6 +54,7 @@ export function createToken(user) {
 }
 
 export function verifyToken(token) {
+  if (!appConfig.authSecret) return null;
   if (!token || token.split('.').length !== 3) return null;
   const [header, payload, signature] = token.split('.');
   const expected = sign(`${header}.${payload}`);

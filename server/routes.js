@@ -4,6 +4,7 @@ import { hashPassword, createToken, requireUser, verifyPassword, verifyToken, ge
 import { appConfig, formatMoney, platformCatalog, subscriptionPlans } from './config.js';
 import { generateCampaignDraft } from './ai.js';
 import { buildAuthorizationUrl, encryptTokenPayload, exchangeOAuthCode } from './oauth.js';
+import { getReadiness } from './readiness.js';
 import { createRenderAsset, createVoiceAsset } from './voice.js';
 import { getPlan, initializeCheckout, verifyPaystackSignature } from './paystack.js';
 import {
@@ -57,6 +58,7 @@ function bootstrapPayload(user) {
     }),
     campaigns: bundle.campaigns.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     publishJobs: bundle.publishJobs.sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    readiness: getReadiness(),
     plans: Object.values(subscriptionPlans).map((plan) => ({
       ...plan,
       displayPrice: formatMoney(plan),
@@ -93,9 +95,9 @@ async function register(request, response) {
     const brandProfile = {
       id: createId('brand'),
       tenantId: tenant.id,
-      voice: 'clear, useful, conversion-focused',
-      audience: 'small business owners',
-      offer: 'AI-managed social content subscription',
+      voice: '',
+      audience: '',
+      offer: '',
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };
@@ -547,6 +549,11 @@ export async function handleApi(request, response) {
     }
     if (request.method === 'GET' && pathname === '/api/me') {
       me(request, response);
+      return true;
+    }
+    if (request.method === 'GET' && pathname === '/api/system/readiness') {
+      requireUser(request);
+      sendJson(response, 200, { readiness: getReadiness() });
       return true;
     }
     if (request.method === 'PUT' && pathname === '/api/brand-profile') {

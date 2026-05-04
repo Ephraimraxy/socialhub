@@ -153,7 +153,6 @@ button {
   font-size: 12px;
 }
 
-.brand-mark,
 .account-icon,
 .flow-icon {
   display: inline-flex;
@@ -163,11 +162,11 @@ button {
 }
 
 .brand-mark {
+  display: block;
   width: 42px;
   height: 42px;
   border-radius: 8px;
-  background: #20a681;
-  color: #ffffff;
+  object-fit: cover;
 }
 
 .nav-list {
@@ -908,6 +907,33 @@ button {
   padding-left: 18px;
   color: #596760;
   line-height: 1.45;
+}
+
+.phase-item p {
+  margin: 10px 0 0;
+  color: #596760;
+  line-height: 1.45;
+}
+
+.readiness-summary {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid #e4ebe7;
+  border-radius: 8px;
+  background: #f7faf8;
+}
+
+.readiness-summary strong {
+  color: #126b57;
+  font-size: 42px;
+  line-height: 1;
+}
+
+.readiness-summary span {
+  color: #596760;
+  font-size: 14px;
 }
 
 .phase-item > div span {

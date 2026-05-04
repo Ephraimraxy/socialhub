@@ -1,0 +1,17 @@
+{
+  "name": "SocialHub",
+  "short_name": "SocialHub",
+  "description": "AI content operations platform for creating, rendering, scheduling, and managing social campaigns.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f7f5",
+  "theme_color": "#126b57",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "64x64",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

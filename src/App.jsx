@@ -158,6 +158,7 @@ function App() {
   const [plan, setPlan] = useState('starter');
   const [plans, setPlans] = useState([]);
   const [subscription, setSubscription] = useState(null);
+  const [readiness, setReadiness] = useState(null);
 
   const connectedCount = platforms.filter((platform) => platform.connected).length;
   const directPlatforms = platforms.filter((platform) => platform.automation === 'Direct').length;
@@ -192,6 +193,7 @@ function App() {
     setPlatforms(mergePlatforms(payload.platforms || []));
     setPlans(payload.plans || []);
     setSubscription(payload.subscription || null);
+    setReadiness(payload.readiness || null);
     setPlan(payload.subscription?.planId || payload.plans?.[0]?.id || 'starter');
     setQueue(queueFromData(payload.campaigns || [], payload.publishJobs || []));
 
@@ -335,9 +337,7 @@ function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand-lockup" aria-label="SocialHub">
-          <div className="brand-mark">
-            <Sparkles size={21} strokeWidth={2.4} />
-          </div>
+          <img className="brand-mark" src="/favicon.svg" alt="" />
           <div>
             <strong>SocialHub</strong>
             <span>SaaS Console</span>
@@ -349,7 +349,7 @@ function App() {
           <NavButton icon={SquareStack} id="workflow" label="Workflow" activeView={activeView} setActiveView={setActiveView} />
           <NavButton icon={PlugZap} id="connections" label="Connections" activeView={activeView} setActiveView={setActiveView} />
           <NavButton icon={Wand2} id="factory" label="AI Factory" activeView={activeView} setActiveView={setActiveView} />
-          <NavButton icon={ClipboardList} id="blueprint" label="Blueprint" activeView={activeView} setActiveView={setActiveView} />
+          <NavButton icon={ClipboardList} id="blueprint" label="Launch" activeView={activeView} setActiveView={setActiveView} />
         </nav>
 
         <div className="account-panel">
@@ -366,7 +366,7 @@ function App() {
       <main className="main-stage">
         <header className="topbar">
           <div>
-            <p className="eyebrow">SaaS MVP</p>
+            <p className="eyebrow">Production Console</p>
             <h1>{viewTitle(activeView)}</h1>
           </div>
           <div className="topbar-actions">
@@ -428,6 +428,7 @@ function App() {
             plan={plan}
             plans={plans}
             subscription={subscription}
+            readiness={readiness}
             setPlan={setPlan}
             checkout={checkout}
           />
@@ -479,9 +480,7 @@ function AuthScreen({ onSubmit, error }) {
     <main className="auth-screen">
       <section className="auth-panel">
         <div className="brand-lockup auth-brand" aria-label="SocialHub">
-          <div className="brand-mark">
-            <Sparkles size={21} strokeWidth={2.4} />
-          </div>
+          <img className="brand-mark" src="/favicon.svg" alt="" />
           <div>
             <strong>SocialHub</strong>
             <span>Client content automation</span>
@@ -703,7 +702,7 @@ function Workflow() {
           <div className="rules-list">
             <Rule label="YouTube" value="Direct upload and scheduled publish after Google approval." />
             <Rule label="Instagram" value="Business or Creator account required through Meta." />
-            <Rule label="Facebook" value="Page publishing only for the clean MVP." />
+            <Rule label="Facebook" value="Page publishing with approved Meta permissions." />
             <Rule label="TikTok" value="Direct post when approved, manual completion fallback otherwise." />
           </div>
         </section>
@@ -720,7 +719,7 @@ function Connections({ platforms, togglePlatform }) {
           <p className="eyebrow">OAuth Center</p>
           <h2>Client platform links</h2>
         </div>
-        <StatusPill label="Prototype mode" />
+        <StatusPill label="OAuth required" />
       </div>
 
       <div className="platform-grid">
@@ -884,7 +883,7 @@ function Factory({
   );
 }
 
-function Blueprint({ plan, plans, subscription, setPlan, checkout }) {
+function Blueprint({ plan, plans, subscription, readiness, setPlan, checkout }) {
   const visiblePlans = plans.length
     ? plans
     : [
@@ -893,17 +892,33 @@ function Blueprint({ plan, plans, subscription, setPlan, checkout }) {
         { id: 'agency', displayPrice: '₦150K' },
       ];
 
+  const readinessPercent = readiness ? Math.round((readiness.completed / readiness.total) * 100) : 0;
+  const readinessRows = (readiness?.checks || []).map((item) => ({
+    id: item.id,
+    label: item.label,
+    weeks: item.ready ? 'Configured' : 'Needs setup',
+    state: item.severity === 'launch' ? 'launch' : 'required',
+    items: [item.detail],
+  }));
+
   return (
     <section className="blueprint-screen">
       <div className="two-column">
         <section className="plain-panel">
-          <p className="eyebrow">Build Plan</p>
-          <h2>Ten-week SaaS roadmap</h2>
+          <p className="eyebrow">Launch Status</p>
+          <h2>Production readiness</h2>
+          <div className="readiness-summary">
+            <strong>{readinessPercent}%</strong>
+            <span>{readiness?.completed || 0} of {readiness?.total || 0} live requirements configured</span>
+            <div className="progress-bar">
+              <span style={{ width: `${readinessPercent}%` }} />
+            </div>
+          </div>
           <div className="phase-list">
-            {phases.map((phase) => (
-              <article className="phase-item" key={phase.title}>
+            {readinessRows.map((phase) => (
+              <article className="phase-item readiness-item" key={phase.id}>
                 <div>
-                  <strong>{phase.title}</strong>
+                  <strong>{phase.label}</strong>
                   <span>{phase.weeks} · {phase.state}</span>
                 </div>
                 <ul>
@@ -917,8 +932,8 @@ function Blueprint({ plan, plans, subscription, setPlan, checkout }) {
         </section>
 
         <section className="plain-panel">
-          <p className="eyebrow">Business Model</p>
-          <h2>Subscription packages</h2>
+          <p className="eyebrow">Billing</p>
+          <h2>Subscription plan</h2>
           <div className="pricing-toggle" role="group" aria-label="Pricing plan">
             {visiblePlans.map((item) => (
               <button className={plan === item.id ? 'is-selected' : ''} type="button" key={item.id} onClick={() => setPlan(item.id)}>
@@ -932,10 +947,9 @@ function Blueprint({ plan, plans, subscription, setPlan, checkout }) {
           </button>
           <div className="unit-economics">
             <Metric label="Current billing status" value={subscription?.status || 'trialing'} />
-            <Metric label="Gross margin target" value="75-85%" />
-            <Metric label="API cost per client" value="₦4K-₦18K" />
-            <Metric label="MVP launch goal" value="20 clients" />
-            <Metric label="Month 9 target" value="100 clients" />
+            <Metric label="Billing provider" value={subscription?.provider || 'paystack'} />
+            <Metric label="Selected plan" value={visiblePlans.find((item) => item.id === plan)?.name || plan} />
+            <Metric label="Launch state" value={readiness?.launchReady ? 'Ready' : 'Needs configuration'} />
           </div>
         </section>
       </div>
@@ -943,10 +957,10 @@ function Blueprint({ plan, plans, subscription, setPlan, checkout }) {
       <section className="api-panel">
         <div className="section-title-row">
           <div>
-            <p className="eyebrow">Integration Map</p>
-            <h2>API readiness</h2>
+            <p className="eyebrow">Live Integrations</p>
+            <h2>Configured services</h2>
           </div>
-          <StatusPill label="Review-aware" />
+          <StatusPill label={readiness?.requiredReady ? 'Core ready' : 'Setup required'} />
         </div>
         <div className="api-list">
           {apiMap.map((api) => (
@@ -1135,7 +1149,7 @@ function viewTitle(view) {
     workflow: 'Workflow map',
     connections: 'Connection center',
     factory: 'AI content factory',
-    blueprint: 'Build blueprint',
+    blueprint: 'Launch readiness',
   };
   return titles[view] || 'Command center';
 }

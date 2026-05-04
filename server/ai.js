@@ -24,7 +24,7 @@ export async function generateCampaignDraft(input, brandProfile) {
     `Offer: ${input.offer}`,
     `Format: ${input.format}`,
     `Target platforms: ${input.platforms?.join(', ')}`,
-    `Brand voice: ${brandProfile?.voice || 'clear, useful, conversion-focused'}`,
+    `Brand voice: ${brandProfile?.voice || 'Not provided'}`,
   ].join('\n');
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {

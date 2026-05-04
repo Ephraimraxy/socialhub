@@ -1,6 +1,6 @@
-# Social AI Studio
+# SocialHub
 
-A React MVP prototype for a SaaS that lets clients connect social accounts, generate AI content, create voice/video assets, and publish or schedule across YouTube, Instagram, Facebook, and TikTok.
+A production-oriented SaaS foundation that lets clients connect social accounts, generate AI content, create voice/video assets, and publish or schedule across YouTube, Instagram, Facebook, and TikTok after platform approval.
 
 ## Run locally
 
@@ -21,9 +21,9 @@ This app is prepared for GitHub-to-Railway CI/CD:
 ## What is implemented
 
 - Client command center
-- Platform connection prototype
-- AI campaign generator prototype
-- Publishing queue prototype
+- Platform OAuth connection flow
+- AI campaign generator
+- Publishing queue
 - User registration and login
 - Tenant/workspace bootstrap
 - Paystack checkout initialization
