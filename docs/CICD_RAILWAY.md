@@ -28,10 +28,11 @@ For the production app shell, Railway needs:
 NODE_ENV=production
 PORT=3000
 AUTH_SECRET=
+PLATFORM_ADMIN_EMAIL=
 ENABLE_DIRECT_PUBLISHING=false
 ```
 
-Railway usually injects `PORT` automatically, so you do not normally need to set it manually. Set `AUTH_SECRET` to a long random value before real users create accounts.
+Railway usually injects `PORT` automatically, so you do not normally need to set it manually. Set `AUTH_SECRET` to a long random value before real users create accounts. Set `PLATFORM_ADMIN_EMAIL` to the exact email address you will register with as the SaaS owner. If this variable is empty, nobody gets platform admin access, including the first registered user.
 
 For the paid SaaS backend phase, add:
 

@@ -10,6 +10,7 @@ export function getReadiness() {
   const planCodesReady = plans.length > 0 && plans.every((plan) => Boolean(plan.paystackPlanCode));
   const checks = [
     check('auth_secret', 'Authentication secret', appConfig.authSecret.length >= 32, 'Set AUTH_SECRET to a long random value.'),
+    check('platform_admin_email', 'Platform admin email', appConfig.platformAdminEmails.length > 0, 'Set PLATFORM_ADMIN_EMAIL to the email address that should manage global billing settings.'),
     check('paystack_secret', 'Paystack secret key', appConfig.paystackSecretKey, 'Set PAYSTACK_SECRET_KEY.'),
     check('paystack_public', 'Paystack public key', appConfig.paystackPublicKey, 'Set PAYSTACK_PUBLIC_KEY.'),
     check('paystack_plans', 'Paystack subscription plans', planCodesReady, 'Add active Paystack plan codes in Admin Billing Settings.'),

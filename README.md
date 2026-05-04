@@ -36,6 +36,8 @@ This app is prepared for GitHub-to-Railway CI/CD:
 - Full workflow map
 - Build blueprint and business model view
 
+Platform admin access is controlled only by the `PLATFORM_ADMIN_EMAIL` Railway variable. The first registered user is not automatically promoted.
+
 ## What comes next
 
 - PostgreSQL persistence adapter

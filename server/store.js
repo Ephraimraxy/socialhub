@@ -91,10 +91,9 @@ export function nowIso() {
   return new Date().toISOString();
 }
 
-export function isPlatformAdmin(user, data = readStore()) {
+export function isPlatformAdmin(user) {
   if (!user) return false;
-  if (user.role === 'platform_admin') return true;
-  return data.users[0]?.id === user.id;
+  return appConfig.platformAdminEmails.includes(String(user.email || '').trim().toLowerCase());
 }
 
 export function publicUser(user, data) {
@@ -105,7 +104,7 @@ export function publicUser(user, data) {
     name: user.name,
     email: user.email,
     role: user.role,
-    platformAdmin: isPlatformAdmin(user, data),
+    platformAdmin: isPlatformAdmin(user),
     createdAt: user.createdAt,
   };
 }

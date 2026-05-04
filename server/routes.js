@@ -40,8 +40,7 @@ function requireFields(body, fields) {
 
 function requirePlatformAdmin(request) {
   const user = requireUser(request);
-  const data = readStore();
-  if (!isPlatformAdmin(user, data)) {
+  if (!isPlatformAdmin(user)) {
     const error = new Error('Platform admin access required');
     error.status = 403;
     throw error;
@@ -165,7 +164,7 @@ async function register(request, response) {
       name: body.name.trim(),
       email,
       passwordHash: hashPassword(body.password),
-      role: data.users.length === 0 ? 'platform_admin' : 'owner',
+      role: 'owner',
       createdAt: nowIso(),
     };
     const brandProfile = {
