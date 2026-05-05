@@ -389,7 +389,7 @@ function App() {
     if (!session) return undefined;
     const timer = window.setInterval(() => {
       refreshRuntime(true);
-    }, 1000);
+    }, 30000);
     return () => window.clearInterval(timer);
   }, [session?.id]);
 
@@ -405,6 +405,10 @@ function App() {
         return nextPlans.some((item) => item.id === current) ? current : nextPlans[0]?.id || current;
       });
     } catch (error) {
+      if (error.message?.includes('401') || error.message?.toLowerCase().includes('unauthorized')) {
+        logout();
+        return;
+      }
       if (!silent) setApiError(error.message);
     }
   }
@@ -649,15 +653,11 @@ const LANDING_STATS = [
 const MARQUEE_ITEMS = [
   { label: 'Claude AI',      color: '#d97706' },
   { label: 'ElevenLabs',     color: '#a855f7' },
-  { label: 'YouTube',        color: '#d92d20' },
-  { label: 'Instagram',      color: '#c13584' },
+  { label: 'YouTube',        color: '#ff0000' },
+  { label: 'Instagram',      color: '#e1306c' },
   { label: 'Facebook',       color: '#1877f2' },
-  { label: 'TikTok',         color: '#ffffff' },
-  { label: 'Paystack',       color: '#00c3f7' },
-  { label: 'Cloudflare R2',  color: '#f6821f' },
-  { label: 'Google OAuth',   color: '#4285f4' },
+  { label: 'TikTok',         color: '#ee1d52' },
   { label: 'Meta API',       color: '#0082fb' },
-  { label: 'Webhooks',       color: '#a3e635' },
 ];
 
 const HERO_WORDS = ['Create.', 'Voice.', 'Render.', 'Publish.'];
@@ -686,14 +686,58 @@ const OB_TONES = [
 ];
 
 const SHOWCASE_CARDS = [
-  { platform: 'YouTube',   color: '#d92d20', bg: 'linear-gradient(160deg,#1a0533,#4c0519)', title: '5 AI Business Hacks That 3× Your Revenue',      views: '124K views', dur: '0:58' },
-  { platform: 'TikTok',    color: '#ee1d52', bg: 'linear-gradient(160deg,#0a0a1a,#1a1a3e)', title: 'I built a brand with just AI tools 🚀',           views: '890K views', dur: '0:32' },
-  { platform: 'Instagram', color: '#c13584', bg: 'linear-gradient(160deg,#2d0c35,#0c1a35)', title: 'Morning routine that changed my life ✨',          views: '340K plays', dur: '0:45' },
-  { platform: 'Facebook',  color: '#1877f2', bg: 'linear-gradient(160deg,#051535,#0c2a35)', title: 'AI writes my captions — here\'s the exact prompt',  views:  '56K views', dur: '1:20' },
-  { platform: 'YouTube',   color: '#d92d20', bg: 'linear-gradient(160deg,#1a0533,#350c0c)', title: 'Product launch with zero ad spend',                views:  '78K views', dur: '0:51' },
-  { platform: 'TikTok',    color: '#ee1d52', bg: 'linear-gradient(160deg,#0d1a0d,#1a1a3e)', title: 'Day in the life of an AI content creator',         views:  '2.1M views', dur: '0:28' },
-  { platform: 'Instagram', color: '#c13584', bg: 'linear-gradient(160deg,#1a0c35,#351a0c)', title: 'Transform your brand voice with AI 🎯',            views: '185K plays', dur: '0:39' },
-  { platform: 'YouTube',   color: '#d92d20', bg: 'linear-gradient(160deg,#0c1535,#2d1a53)', title: 'The 3-step system for viral short-form video',     views: '290K views', dur: '1:02' },
+  { platform: 'YouTube Shorts', color: '#ff0000', bg: 'linear-gradient(160deg,#180010,#3d0000)', title: '5 AI Business Hacks That 3× Your Revenue',        views: '124K views', likes: '8.2K', dur: '0:58' },
+  { platform: 'TikTok',         color: '#ee1d52', bg: 'linear-gradient(160deg,#0a0a1a,#1a0a1a)', title: 'I built a brand with just AI tools 🚀',             views: '2.1M views', likes: '340K', dur: '0:32' },
+  { platform: 'Instagram Reel', color: '#e1306c', bg: 'linear-gradient(160deg,#1a0c1a,#0c0c2d)', title: 'Morning routine that changed my life ✨',            views: '340K plays', likes: '45K',  dur: '0:45' },
+  { platform: 'Facebook',       color: '#1877f2', bg: 'linear-gradient(160deg,#020c1f,#071535)', title: 'AI content strategy for small businesses',          views:  '56K views', likes: '3.1K', dur: '1:20' },
+  { platform: 'YouTube Shorts', color: '#ff0000', bg: 'linear-gradient(160deg,#1a0533,#3d000f)', title: 'Product launch strategy — zero ad spend',           views:  '78K views', likes: '5.4K', dur: '0:51' },
+  { platform: 'TikTok',         color: '#ee1d52', bg: 'linear-gradient(160deg,#0d0a1a,#1a0a2d)', title: 'Day in the life of an AI content creator',           views: '890K views', likes: '112K', dur: '0:28' },
+  { platform: 'Instagram Reel', color: '#e1306c', bg: 'linear-gradient(160deg,#1a0c35,#2d0c1a)', title: 'Transform your brand voice with AI 🎯',              views: '185K plays', likes: '22K',  dur: '0:39' },
+  { platform: 'YouTube Shorts', color: '#ff0000', bg: 'linear-gradient(160deg,#0c1535,#2d1a53)', title: '3-step system for viral short-form video',           views: '290K views', likes: '18K',  dur: '1:02' },
+];
+
+const PLATFORM_TILES = [
+  {
+    id: 'youtube', name: 'YouTube', color: '#ff0000', bg: 'linear-gradient(135deg,#180010 0%,#2d0000 100%)',
+    format: 'Shorts & Long-form', reach: '2.7B users',
+    preview: { title: '5 AI Hacks That Grew My Brand 10×', channel: 'YourBrand', views: '124K', likes: '8.2K', duration: '0:58' },
+  },
+  {
+    id: 'tiktok', name: 'TikTok', color: '#ee1d52', bg: 'linear-gradient(135deg,#0a0a1a 0%,#1a0a1a 100%)',
+    format: 'Short Videos', reach: '1.5B users',
+    preview: { title: 'How I built a 6-figure brand with AI 🚀', channel: '@yourbrand', views: '2.1M', likes: '340K', duration: '0:28' },
+  },
+  {
+    id: 'instagram', name: 'Instagram', color: '#e1306c', bg: 'linear-gradient(135deg,#1a0c1a 0%,#0c0c2d 100%)',
+    format: 'Reels & Posts', reach: '2B users',
+    preview: { title: 'Morning routine that 10×\'d my energy ✨', channel: '@yourbrand', views: '340K', likes: '45K', duration: '0:45' },
+  },
+  {
+    id: 'facebook', name: 'Facebook', color: '#1877f2', bg: 'linear-gradient(135deg,#020c1f 0%,#071535 100%)',
+    format: 'Videos & Reels', reach: '3B users',
+    preview: { title: 'AI content strategy every brand needs', channel: 'Your Page', views: '56K', likes: '3.1K', duration: '1:20' },
+  },
+];
+
+const PRICING_PLANS_LANDING = [
+  {
+    id: 'starter', name: 'Starter', price: '₦25,000', period: '/mo',
+    desc: 'Perfect for solo creators and small brands',
+    features: ['30 campaigns / month', '4 platform connections', 'Claude AI scripts & captions', 'ElevenLabs voiceovers', 'Auto video rendering', 'Direct multi-platform publish'],
+    highlight: false,
+  },
+  {
+    id: 'growth', name: 'Growth', price: '₦65,000', period: '/mo',
+    desc: 'For brands scaling their content output fast',
+    features: ['120 campaigns / month', '4 platform connections', 'Claude AI scripts & captions', 'ElevenLabs voiceovers', 'Priority video rendering', 'Direct multi-platform publish', 'Brand voice profiles', 'Campaign analytics'],
+    highlight: true,
+  },
+  {
+    id: 'agency', name: 'Agency', price: '₦150,000', period: '/mo',
+    desc: 'Run content operations for multiple clients',
+    features: ['400 campaigns / month', '4 platform connections', 'Claude AI scripts & captions', 'ElevenLabs voiceovers', 'Fastest priority rendering', 'Direct multi-platform publish', 'Multi-client workspaces', 'Dedicated support', 'White-label ready'],
+    highlight: false,
+  },
 ];
 
 /* ─── Google SVG icon ─────────────────────────────────────────────── */
@@ -854,8 +898,11 @@ function AuthModal({ mode, onClose, onSubmit, onGoogleAuth, googleAvailable, err
 function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
   const [authMode, setAuthMode] = useState(null);
   const [scrolled, setScrolled] = useState(false);
+  const [slideIdx, setSlideIdx] = useState(0);
   const [featRef, featVisible] = useReveal();
   const [statsRef, statsVisible] = useReveal();
+  const [platformRef, platformVisible] = useReveal(0.08);
+  const [pricingRef, pricingVisible] = useReveal(0.06);
   const [ctaRef, ctaVisible] = useReveal();
 
   useEffect(() => {
@@ -863,6 +910,13 @@ function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => setSlideIdx((i) => (i + 1) % SHOWCASE_CARDS.length), 4200);
+    return () => clearInterval(t);
+  }, []);
+
+  const activeCard = SHOWCASE_CARDS[slideIdx];
 
   return (
     <div className="landing-root">
@@ -884,21 +938,14 @@ function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
 
       {/* ── Hero ── */}
       <section className="landing-hero">
-        <div className="hero-badge">
-          <Sparkles size={12} />
-          <span>AI-Powered Social Media Automation</span>
-        </div>
+        <div className="hero-badge"><Sparkles size={12} /><span>AI-Powered Social Media Automation</span></div>
 
         <h1 className="hero-title">
           {HERO_WORDS.map((word, i) => (
-            <span className="hero-word" key={word} style={{ animationDelay: `${0.08 + i * 0.14}s` }}>
-              {word}{' '}
-            </span>
+            <span className="hero-word" key={word} style={{ animationDelay: `${0.08 + i * 0.14}s` }}>{word}{' '}</span>
           ))}
           <br />
-          <span className="hero-title-accent" style={{ animationDelay: '0.62s' }}>
-            All in one workspace.
-          </span>
+          <span className="hero-title-accent" style={{ animationDelay: '0.62s' }}>All in one workspace.</span>
         </h1>
 
         <p className="hero-subtitle">
@@ -907,13 +954,20 @@ function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
 
         <div className="hero-actions">
           <button className="purple-primary-btn large-purple-btn" type="button" onClick={() => setAuthMode('register')}>
-            <Rocket size={17} />
-            Start for free
+            <Rocket size={17} /> Start for free
           </button>
           <button className="hero-secondary-btn" type="button" onClick={() => setAuthMode('login')}>
-            <KeyRound size={16} />
-            Sign in
+            <KeyRound size={16} /> Sign in
           </button>
+        </div>
+
+        <div className="hero-platform-row">
+          {PLATFORM_TILES.map((p) => (
+            <span className="hero-platform-chip" key={p.id}>
+              <span className="hero-platform-dot" style={{ background: p.color }} />
+              {p.name}
+            </span>
+          ))}
         </div>
 
         {/* Dashboard mock */}
@@ -928,8 +982,7 @@ function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
             <div className="preview-sidebar">
               {['Command', 'Workflow', 'Connections', 'AI Factory', 'Launch'].map((item) => (
                 <div className={`preview-nav-item ${item === 'AI Factory' ? 'preview-nav-active' : ''}`} key={item}>
-                  <div className="preview-nav-dot" />
-                  <span>{item}</span>
+                  <div className="preview-nav-dot" /><span>{item}</span>
                 </div>
               ))}
             </div>
@@ -954,7 +1007,7 @@ function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
                 <div className="preview-card preview-card-sm">
                   <div className="preview-label">Platforms</div>
                   <div className="preview-platform-dots">
-                    {['#d92d20','#c13584','#1877f2','#111111'].map((c) => (
+                    {['#ff0000','#e1306c','#1877f2','#ee1d52'].map((c) => (
                       <span key={c} className="preview-platform-dot" style={{ background: c }} />
                     ))}
                   </div>
@@ -967,7 +1020,12 @@ function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
 
       {/* ── Stats strip ── */}
       <div ref={statsRef} className={`landing-stats-strip ${statsVisible ? 'is-visible' : ''}`}>
-        {LANDING_STATS.map((s) => (
+        {[
+          { value: '10×', label: 'Faster content creation' },
+          { value: '4',   label: 'Platforms in one click' },
+          { value: '100%', label: 'AI-generated scripts' },
+          { value: '<5min', label: 'From brief to published' },
+        ].map((s) => (
           <div className="stat-item" key={s.label}>
             <strong>{s.value}</strong>
             <span>{s.label}</span>
@@ -977,7 +1035,7 @@ function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
 
       {/* ── Marquee ── */}
       <div className="marquee-section">
-        <p className="marquee-label">Powered by the world's best AI & publishing APIs</p>
+        <p className="marquee-label">Powered by the world's leading AI & social platforms</p>
         <div className="marquee-track">
           <div className="marquee-inner">
             {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
@@ -990,19 +1048,44 @@ function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
         </div>
       </div>
 
-      {/* ── Features ── */}
-      <section ref={featRef} className={`landing-features ${featVisible ? 'is-visible' : ''}`}>
+      {/* ── Platform showcase ── */}
+      <section ref={platformRef} className={`platform-showcase-section ${platformVisible ? 'is-visible' : ''}`}>
         <div className="landing-section-head">
-          <p className="landing-eyebrow">Everything you need</p>
-          <h2>One platform. End-to-end automation.</h2>
-          <p className="landing-section-sub">From blank brief to published video — without leaving SocialHub.</p>
+          <p className="landing-eyebrow">Publish everywhere</p>
+          <h2>One brief. Four platforms. Zero manual work.</h2>
+          <p className="landing-section-sub">Your AI factory produces platform-optimised content for every channel simultaneously.</p>
         </div>
-        <div className="features-grid">
-          {LANDING_FEATURES.map((f, i) => (
-            <div className="feature-card" key={f.title} style={{ '--delay': `${i * 0.08}s` }}>
-              <div className="feature-icon"><f.icon size={20} /></div>
-              <strong>{f.title}</strong>
-              <p>{f.desc}</p>
+        <div className="platform-tiles-grid">
+          {PLATFORM_TILES.map((tile, i) => (
+            <div className="platform-tile" key={tile.id} style={{ '--delay': `${i * 0.1}s`, '--pc': tile.color }}>
+              <div className="platform-tile-header">
+                <span className="platform-tile-dot" style={{ background: tile.color }} />
+                <strong>{tile.name}</strong>
+                <span className="platform-tile-format">{tile.format}</span>
+                <span className="platform-tile-reach">{tile.reach}</span>
+              </div>
+              <div className="platform-tile-screen" style={{ background: tile.bg }}>
+                <div className="pts-chrome">
+                  <span className="pts-chrome-dot" style={{ background: tile.color, opacity: 0.8 }} />
+                  <span className="pts-chrome-title">{tile.name}</span>
+                </div>
+                <div className="pts-content">
+                  <div className="pts-thumb">
+                    <div className="pts-play"><Play size={14} fill="white" /></div>
+                    <span className="pts-dur">{tile.preview.duration}</span>
+                  </div>
+                  <div className="pts-meta">
+                    <div className="pts-title">{tile.preview.title}</div>
+                    <div className="pts-channel">{tile.preview.channel}</div>
+                    <div className="pts-stats">
+                      <span>{tile.preview.views} views</span>
+                      <span>·</span>
+                      <span>{tile.preview.likes} likes</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="pts-ai-badge"><Sparkles size={9} /> AI Generated</div>
+              </div>
             </div>
           ))}
         </div>
@@ -1013,58 +1096,142 @@ function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
         <div className="landing-section-head">
           <p className="landing-eyebrow">How it works</p>
           <h2>Four steps from idea to live.</h2>
+          <p className="landing-section-sub">The entire content pipeline — automated.</p>
         </div>
         <div className="how-steps">
           {[
-            { n: '01', icon: Wand2,       title: 'Brief your AI',        desc: 'Describe your topic, audience, tone and offer in plain language.' },
-            { n: '02', icon: Mic2,        title: 'Generate & voice',     desc: 'Claude writes the script, ElevenLabs adds a natural voiceover.' },
-            { n: '03', icon: Film,        title: 'Render your video',    desc: 'Your content is assembled into polished vertical video automatically.' },
-            { n: '04', icon: UploadCloud, title: 'Publish everywhere',   desc: 'One click sends to YouTube, Instagram, Facebook and TikTok.' },
+            { n: '01', icon: Wand2,       title: 'Brief your AI',      desc: 'Describe your topic, target audience, tone of voice and offer in plain language.' },
+            { n: '02', icon: Mic2,        title: 'Generate & voice',   desc: 'Claude writes hooks, scripts and captions. ElevenLabs adds a studio voiceover.' },
+            { n: '03', icon: Film,        title: 'Render your video',  desc: 'Your script and audio are assembled into polished vertical video automatically.' },
+            { n: '04', icon: UploadCloud, title: 'Publish everywhere', desc: 'One click sends your video to YouTube, Instagram, Facebook and TikTok at once.' },
           ].map((s, i) => (
             <div className="how-step" key={s.n} style={{ '--delay': `${i * 0.1}s` }}>
               <div className="how-step-num">{s.n}</div>
-              <div className="how-step-icon"><s.icon size={20} /></div>
+              <div className="how-step-icon"><s.icon size={22} /></div>
               <strong>{s.title}</strong>
               <p>{s.desc}</p>
-              {i < 3 && <div className="how-connector" />}
             </div>
           ))}
         </div>
       </section>
 
-      {/* ── Content showcase ── */}
-      <section className="showcase-section">
+      {/* ── Video slideshow ── */}
+      <section className="slideshow-section">
         <div className="landing-section-head">
           <p className="landing-eyebrow">Content in action</p>
-          <h2>From brief to published — in minutes.</h2>
-          <p className="landing-section-sub">AI-generated videos, reels and shorts, live across every platform.</p>
+          <h2>AI-produced content, live across every platform.</h2>
+          <p className="landing-section-sub">Every video, reel and short was generated by SocialHub's AI factory.</p>
         </div>
-        <div className="showcase-track">
-          <div className="showcase-reel">
-            {[...SHOWCASE_CARDS, ...SHOWCASE_CARDS].map((card, i) => (
-              <div className="showcase-card" key={i}>
-                <div className="showcase-card-thumb" style={{ background: card.bg }}>
-                  <div className="showcase-play-btn">
-                    <Play size={16} fill="white" />
-                  </div>
-                  <div className="showcase-dur">{card.dur}</div>
-                </div>
-                <div className="showcase-card-meta">
-                  <span
-                    className="showcase-platform-badge"
-                    style={{ background: `${card.color}22`, color: card.color, border: `1px solid ${card.color}44` }}
-                  >
-                    <span className="platform-dot" style={{ background: card.color, width: '5px', height: '5px' }} />
-                    {card.platform}
-                  </span>
-                  <div className="showcase-card-title">{card.title}</div>
-                  <div className="showcase-card-stats">
-                    <span>{card.views}</span>
-                  </div>
-                </div>
+        <div className="slideshow-layout">
+          {/* Featured large card */}
+          <div className="slideshow-featured" style={{ background: activeCard.bg }} key={slideIdx}>
+            <div className="sf-overlay" />
+            <div className="sf-platform-badge" style={{ color: activeCard.color, borderColor: `${activeCard.color}44`, background: `${activeCard.color}18` }}>
+              <span className="platform-dot" style={{ background: activeCard.color, width: '6px', height: '6px' }} />
+              {activeCard.platform}
+            </div>
+            <div className="sf-play-ring">
+              <div className="sf-play-btn"><Play size={28} fill="white" /></div>
+            </div>
+            <div className="sf-meta">
+              <div className="sf-title">{activeCard.title}</div>
+              <div className="sf-stats">
+                <span>{activeCard.views}</span>
+                <span className="sf-dot-sep">·</span>
+                <span>{activeCard.likes} likes</span>
+                <span className="sf-dot-sep">·</span>
+                <span>{activeCard.dur}</span>
               </div>
+            </div>
+            <div className="sf-ai-label"><Sparkles size={10} /> AI Generated</div>
+          </div>
+
+          {/* Thumbnail strip */}
+          <div className="slideshow-strip">
+            {SHOWCASE_CARDS.map((card, i) => (
+              <button
+                key={i}
+                className={`ss-thumb ${i === slideIdx ? 'ss-thumb-active' : ''}`}
+                style={{ background: card.bg }}
+                onClick={() => setSlideIdx(i)}
+                type="button"
+              >
+                <div className="ss-thumb-play"><Play size={10} fill="white" /></div>
+                <div className="ss-thumb-meta">
+                  <span style={{ color: card.color, fontSize: '9px', fontWeight: 700 }}>{card.platform}</span>
+                  <span className="ss-thumb-title">{card.title}</span>
+                </div>
+                {i === slideIdx && <div className="ss-active-bar" style={{ background: card.color }} />}
+              </button>
             ))}
           </div>
+        </div>
+
+        {/* Progress dots */}
+        <div className="slideshow-dots">
+          {SHOWCASE_CARDS.map((_, i) => (
+            <button
+              key={i}
+              className={`slide-dot ${i === slideIdx ? 'slide-dot-active' : ''}`}
+              onClick={() => setSlideIdx(i)}
+              type="button"
+              aria-label={`Slide ${i + 1}`}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* ── Features ── */}
+      <section ref={featRef} className={`landing-features ${featVisible ? 'is-visible' : ''}`}>
+        <div className="landing-section-head">
+          <p className="landing-eyebrow">Everything you need</p>
+          <h2>One platform. End-to-end automation.</h2>
+          <p className="landing-section-sub">From blank brief to published video — without leaving SocialHub.</p>
+        </div>
+        <div className="features-grid">
+          {LANDING_FEATURES.map((f, i) => (
+            <div className="feature-card" key={f.title} style={{ '--delay': `${i * 0.09}s` }}>
+              <div className="feature-icon"><f.icon size={20} /></div>
+              <strong>{f.title}</strong>
+              <p>{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Pricing ── */}
+      <section ref={pricingRef} className={`pricing-section ${pricingVisible ? 'is-visible' : ''}`}>
+        <div className="landing-section-head">
+          <p className="landing-eyebrow">Simple pricing</p>
+          <h2>Choose your plan. Scale as you grow.</h2>
+          <p className="landing-section-sub">All plans include AI scripts, voiceovers, video rendering and direct publishing.</p>
+        </div>
+        <div className="pricing-grid">
+          {PRICING_PLANS_LANDING.map((plan, i) => (
+            <div className={`pricing-card ${plan.highlight ? 'pricing-card-highlight' : ''}`} key={plan.id} style={{ '--delay': `${i * 0.12}s` }}>
+              {plan.highlight && <div className="pricing-popular-badge">Most Popular</div>}
+              <div className="pricing-card-top">
+                <strong className="pricing-plan-name">{plan.name}</strong>
+                <div className="pricing-price">
+                  <span className="pricing-amount">{plan.price}</span>
+                  <span className="pricing-period">{plan.period}</span>
+                </div>
+                <p className="pricing-desc">{plan.desc}</p>
+              </div>
+              <ul className="pricing-features">
+                {plan.features.map((f) => (
+                  <li key={f}><Check size={14} /><span>{f}</span></li>
+                ))}
+              </ul>
+              <button
+                className={plan.highlight ? 'purple-primary-btn pricing-cta-btn' : 'pricing-outline-btn'}
+                type="button"
+                onClick={() => setAuthMode('register')}
+              >
+                Get started
+              </button>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -1074,16 +1241,14 @@ function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
           <div className="cta-glow-orb" />
           <p className="landing-eyebrow">Start today</p>
           <h2>Ready to automate your content?</h2>
-          <p>Join creators and agencies who publish smarter with AI.</p>
+          <p>Join creators and agencies who publish smarter with AI — no manual editing required.</p>
           <div className="hero-actions">
             <button className="purple-primary-btn large-purple-btn" type="button" onClick={() => setAuthMode('register')}>
-              <UserPlus size={17} />
-              Create free workspace
+              <UserPlus size={17} /> Create free workspace
             </button>
             {googleAvailable && (
-              <button className="google-auth-btn cta-google-btn" type="button" onClick={() => { setAuthMode('register'); }}>
-                <GoogleIcon />
-                Continue with Google
+              <button className="google-auth-btn cta-google-btn" type="button" onClick={() => setAuthMode('register')}>
+                <GoogleIcon /> Continue with Google
               </button>
             )}
           </div>
@@ -1094,6 +1259,10 @@ function AuthScreen({ onSubmit, onGoogleAuth, googleAvailable, error }) {
         <div className="landing-nav-brand">
           <div className="landing-nav-mark"><Sparkles size={14} /></div>
           <strong>SocialHub</strong>
+        </div>
+        <div className="footer-links">
+          <span>YouTube</span><span>·</span><span>Instagram</span><span>·</span>
+          <span>TikTok</span><span>·</span><span>Facebook</span>
         </div>
         <span>© {new Date().getFullYear()} SocialHub · AI-powered content automation</span>
       </footer>
